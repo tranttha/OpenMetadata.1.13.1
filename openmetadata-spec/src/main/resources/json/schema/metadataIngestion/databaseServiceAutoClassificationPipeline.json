@@ -79,6 +79,15 @@
       "$ref": "../type/classificationLanguages.json",
       "default": "en",
       "title": "Classification Language"
+    },
+    "classificationNames": {
+      "description": "Names of the Classifications (e.g. 'PII') whose tags should be considered for auto-classification. Only tags belonging to one of these Classifications, with autoClassificationEnabled set and recognizers configured, will be evaluated. Defaults to ['PII'] to preserve existing behavior.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": ["PII"],
+      "title": "Classification Names"
     }
   },
   "additionalProperties": false
