@@ -35,7 +35,10 @@ import { CustomizeEntityType } from '../../../constants/Customize.constants';
 import { usePermissionProvider } from '../../../context/PermissionProvider/PermissionProvider';
 import { ResourceEntity } from '../../../context/PermissionProvider/PermissionProvider.interface';
 import { EntityType, TabSpecificField } from '../../../enums/entity.enum';
-import { Classification } from '../../../generated/entity/classification/classification';
+import {
+  AutoClassificationConfig,
+  Classification,
+} from '../../../generated/entity/classification/classification';
 import { Tag } from '../../../generated/entity/classification/tag';
 import { Operation } from '../../../generated/entity/policies/policy';
 import { Paging } from '../../../generated/type/paging';
@@ -68,6 +71,7 @@ import { GenericProvider } from '../../Customization/GenericProvider/GenericProv
 import { DomainLabelV2 } from '../../DataAssets/DomainLabelV2/DomainLabelV2';
 import { OwnerLabelV2 } from '../../DataAssets/OwnerLabelV2/OwnerLabelV2';
 import EntityHeaderTitle from '../../Entity/EntityHeaderTitle/EntityHeaderTitle.component';
+import AutoClassificationConfigCard from './AutoClassificationConfigCard';
 import './classification-details.less';
 import { ClassificationDetailsProps } from './ClassificationDetails.interface';
 
@@ -289,6 +293,18 @@ const ClassificationDetails = forwardRef(
       handleUpdateClassification,
       isClassificationDisabled,
     ]);
+
+    const handleUpdateAutoClassificationConfig = useCallback(
+      (autoClassificationConfig: AutoClassificationConfig) => {
+        if (!isUndefined(currentClassification)) {
+          handleUpdateClassification?.({
+            ...currentClassification,
+            autoClassificationConfig,
+          });
+        }
+      },
+      [currentClassification, handleUpdateClassification]
+    );
 
     const addTagButtonToolTip = useMemo(() => {
       if (isClassificationDisabled) {
@@ -541,6 +557,16 @@ const ClassificationDetails = forwardRef(
                     dataTestId="classification-owner-name"
                     hasPermission={editOwnerPermission}
                   />
+                  {!isVersionView && (
+                    <AutoClassificationConfigCard
+                      config={currentClassification.autoClassificationConfig}
+                      hasEditPermission={
+                        editClassificationPermission &&
+                        !isClassificationDisabled
+                      }
+                      onUpdate={handleUpdateAutoClassificationConfig}
+                    />
+                  )}
                   {tagClassBase.getClassificationReviewerWidget()}
                 </div>
               </Col>
