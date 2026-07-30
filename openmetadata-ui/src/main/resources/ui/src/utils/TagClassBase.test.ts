@@ -16,6 +16,7 @@ import { DetailPageWidgetKeys } from '../enums/CustomizeDetailPage.enum';
 import { EntityTabs, EntityType, TabSpecificField } from '../enums/entity.enum';
 import { SearchIndex } from '../enums/search.enum';
 import { Tag } from '../generated/entity/classification/tag';
+import { TagLabel } from '../generated/type/tagLabel';
 import { searchQuery } from '../rest/searchAPI';
 import tagClassBase, { TagClassBase } from './TagClassBase';
 
@@ -386,14 +387,22 @@ describe('TagClassBase', () => {
   });
 
   describe('getRecognizerFeedbackPopup', () => {
-    it('returns null', () => {
+    it('returns a ReportTagPopover element wrapping the given tagLabel, entityFqn, and children', () => {
+      const children = React.createElement('span', { 'data-testid': 'child' });
+      const tagLabel = { tagFQN: 'PII.Sensitive' } as TagLabel;
+
       const result = tagClassBase.getRecognizerFeedbackPopup(
-        {} as never,
-        'entity.fqn',
-        React.createElement('span')
+        tagLabel,
+        'service.db.schema.table.column',
+        children
       );
 
-      expect(result).toBeNull();
+      expect(React.isValidElement(result)).toBe(true);
+      expect(result?.props).toMatchObject({
+        tagLabel,
+        entityFqn: 'service.db.schema.table.column',
+        children,
+      });
     });
   });
 

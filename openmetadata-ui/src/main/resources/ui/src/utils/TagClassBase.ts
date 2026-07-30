@@ -16,6 +16,7 @@ import { TabProps } from '../components/common/TabsLabel/TabsLabel.interface';
 import { CommonWidgets } from '../components/DataAssets/CommonWidgets/CommonWidgets';
 import { DomainLabelV2 } from '../components/DataAssets/DomainLabelV2/DomainLabelV2';
 import { OwnerLabelV2 } from '../components/DataAssets/OwnerLabelV2/OwnerLabelV2';
+import ReportTagPopover from '../components/Tag/RecognizerFeedback/ReportTagPopover';
 import { PAGE_SIZE } from '../constants/constants';
 import {
   DESCRIPTION_WIDGET,
@@ -252,11 +253,15 @@ class TagClassBase {
   };
 
   public getRecognizerFeedbackPopup(
-    _tagLabel: TagLabel,
-    _entityFqn: string,
-    _children: React.ReactElement
+    tagLabel: TagLabel,
+    entityFqn: string,
+    children: React.ReactElement
   ): React.ReactElement | null {
-    return null;
+    return React.createElement(ReportTagPopover, {
+      tagLabel,
+      entityFqn,
+      children,
+    });
   }
 
   public getClassificationReviewerWidget(): React.ReactElement | null {
