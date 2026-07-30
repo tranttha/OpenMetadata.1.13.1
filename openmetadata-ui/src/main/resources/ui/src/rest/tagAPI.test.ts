@@ -12,6 +12,7 @@
  */
 
 import { Classification } from '../generated/entity/classification/classification';
+import { FeedbackType } from '../generated/type/recognizerFeedback';
 import {
   createClassification,
   createTag,
@@ -19,6 +20,7 @@ import {
   deleteTag,
   getClassificationByName,
   getTags,
+  postRecognizerFeedback,
   updateTag,
 } from './tagAPI';
 
@@ -109,6 +111,20 @@ describe('API functions should work properly', () => {
     expect(result).toEqual({
       url: `put_request/tags`,
       data: mockUpdateData,
+    });
+  });
+
+  it('postRecognizerFeedback function should work properly', async () => {
+    const mockFeedback = {
+      entityLink: '<#E::table::service.db.schema.table::columns::col1>',
+      tagFQN: 'PII.Sensitive',
+      feedbackType: FeedbackType.FalsePositive,
+    };
+    const result = await postRecognizerFeedback('PII.Sensitive', mockFeedback);
+
+    expect(result).toEqual({
+      url: `post_request/tags/name/PII.Sensitive/feedback`,
+      data: mockFeedback,
     });
   });
 });
