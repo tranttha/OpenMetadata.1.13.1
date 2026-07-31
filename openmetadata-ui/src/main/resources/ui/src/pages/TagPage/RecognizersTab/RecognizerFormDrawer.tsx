@@ -12,20 +12,39 @@
  */
 
 import {
+  Box,
+  Button,
+  ButtonUtility,
   FieldProp,
   FieldTypes,
   getField,
+  HelperTextType,
   HookForm,
 } from '@openmetadata/ui-core-components';
-import { useForm } from 'react-hook-form';
+import { Plus, Trash01 } from '@untitledui/icons';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useFormDrawerWithHook } from '../../../components/common/atoms/drawer/useFormDrawer';
-import { ClassificationLanguage } from '../../../generated/type/patternRecognizer';
-import { Recognizer, Target } from '../../../generated/type/recognizer';
+import {
+  ClassificationLanguage,
+  Pattern,
+  Recognizer,
+  Target,
+} from '../../../generated/type/recognizer';
 import { RecognizerFormDrawerProps } from './RecognizerFormDrawer.interface';
+
+type RecognizerType = 'pattern' | 'exact_terms';
+
+const PATTERN_RECOGNIZER_TYPE: RecognizerType = 'pattern';
+const EXACT_TERMS_RECOGNIZER_TYPE: RecognizerType = 'exact_terms';
 
 interface TargetSelectItem {
   id: Target;
+  label: string;
+}
+
+interface RecognizerTypeSelectItem {
+  id: RecognizerType;
   label: string;
 }
 
@@ -34,17 +53,22 @@ interface RecognizerFormValues {
   displayName: string;
   target: TargetSelectItem | null;
   confidenceThreshold: number;
-  patternName: string;
-  patternRegex: string;
-  patternScore: number;
+  recognizerType: RecognizerTypeSelectItem | null;
+  patterns: Pattern[];
+  exactTerms: string;
   dotAll: boolean;
   ignoreCase: boolean;
   multiline: boolean;
 }
 
+const DEFAULT_PATTERN: Pattern = { name: '', regex: '', score: 0.8 };
+
 const getDefaultValues = (recognizer?: Recognizer): RecognizerFormValues => {
-  const pattern = recognizer?.recognizerConfig?.patterns?.[0];
-  const regexFlags = recognizer?.recognizerConfig?.regexFlags;
+  const config = recognizer?.recognizerConfig;
+  const recognizerType: RecognizerType =
+    (config?.type as RecognizerType) ?? PATTERN_RECOGNIZER_TYPE;
+  const isExactTerms = recognizerType === EXACT_TERMS_RECOGNIZER_TYPE;
+  const regexFlags = config?.regexFlags;
 
   return {
     name: recognizer?.name ?? '',
@@ -53,43 +77,62 @@ const getDefaultValues = (recognizer?: Recognizer): RecognizerFormValues => {
       ? { id: recognizer.target, label: recognizer.target }
       : null,
     confidenceThreshold: recognizer?.confidenceThreshold ?? 0.5,
-    patternName: pattern?.name ?? '',
-    patternRegex: pattern?.regex ?? '',
-    patternScore: pattern?.score ?? 0.8,
+    recognizerType: { id: recognizerType, label: recognizerType },
+    patterns:
+      !isExactTerms && config?.patterns && config.patterns.length > 0
+        ? config.patterns
+        : [DEFAULT_PATTERN],
+    exactTerms:
+      isExactTerms && config?.exactTerms ? config.exactTerms.join(', ') : '',
     dotAll: regexFlags?.dotAll ?? false,
     ignoreCase: regexFlags?.ignoreCase ?? false,
     multiline: regexFlags?.multiline ?? false,
   };
 };
 
+const parseCommaSeparatedList = (value: string): string[] =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 const buildRecognizerPayload = (
   values: RecognizerFormValues,
   recognizer?: Recognizer
-): Recognizer => ({
-  ...recognizer,
-  name: values.name,
-  displayName: values.displayName || undefined,
-  target: values.target?.id as Target,
-  confidenceThreshold: values.confidenceThreshold,
-  enabled: recognizer?.enabled ?? true,
-  recognizerConfig: {
-    type: 'pattern',
-    patterns: [
-      {
-        name: values.patternName,
-        regex: values.patternRegex,
-        score: values.patternScore,
-      },
-    ],
-    regexFlags: {
-      dotAll: values.dotAll,
-      ignoreCase: values.ignoreCase,
-      multiline: values.multiline,
-    },
-    supportedLanguage: ClassificationLanguage.En,
-    context: [],
-  },
-});
+): Recognizer => {
+  const recognizerType = values.recognizerType?.id ?? PATTERN_RECOGNIZER_TYPE;
+  const isExactTerms = recognizerType === EXACT_TERMS_RECOGNIZER_TYPE;
+  const regexFlags = {
+    dotAll: values.dotAll,
+    ignoreCase: values.ignoreCase,
+    multiline: values.multiline,
+  };
+
+  return {
+    ...recognizer,
+    name: values.name,
+    displayName: values.displayName || undefined,
+    target: values.target?.id as Target,
+    confidenceThreshold: values.confidenceThreshold,
+    enabled: recognizer?.enabled ?? true,
+    recognizerConfig: isExactTerms
+      ? {
+          type: EXACT_TERMS_RECOGNIZER_TYPE,
+          exactTerms: parseCommaSeparatedList(values.exactTerms),
+          regexFlags,
+          supportedLanguage: ClassificationLanguage.En,
+        }
+      : {
+          type: PATTERN_RECOGNIZER_TYPE,
+          patterns: values.patterns.filter(
+            (pattern) => pattern.name && pattern.regex
+          ),
+          regexFlags,
+          supportedLanguage: ClassificationLanguage.En,
+          context: [],
+        },
+  };
+};
 
 const RecognizerFormDrawer = ({
   recognizer,
@@ -101,9 +144,25 @@ const RecognizerFormDrawer = ({
     defaultValues: getDefaultValues(recognizer),
   });
 
+  const {
+    fields: patternFields,
+    append: appendPattern,
+    remove: removePattern,
+  } = useFieldArray({ control: form.control, name: 'patterns' });
+
+  const recognizerType =
+    useWatch({ control: form.control, name: 'recognizerType' })?.id ??
+    PATTERN_RECOGNIZER_TYPE;
+  const isExactTerms = recognizerType === EXACT_TERMS_RECOGNIZER_TYPE;
+
   const targetOptions: TargetSelectItem[] = [
     { id: Target.Content, label: t('label.target-content') },
     { id: Target.ColumnName, label: t('label.target-column-name') },
+  ];
+
+  const recognizerTypeOptions: RecognizerTypeSelectItem[] = [
+    { id: PATTERN_RECOGNIZER_TYPE, label: t('label.pattern') },
+    { id: EXACT_TERMS_RECOGNIZER_TYPE, label: t('label.exact-term-plural') },
   ];
 
   const handleFormSubmit = (values: RecognizerFormValues) =>
@@ -150,36 +209,32 @@ const RecognizerFormDrawer = ({
     props: { 'data-testid': 'recognizer-confidence-threshold-input' },
   };
 
-  const patternNameField: FieldProp = {
-    name: 'patternName',
-    label: t('label.pattern-name'),
-    id: 'root/patternName',
-    type: FieldTypes.TEXT,
+  const recognizerTypeField: FieldProp = {
+    name: 'recognizerType',
+    label: t('label.recognizer-type'),
+    id: 'root/recognizerType',
+    type: FieldTypes.SELECT,
     required: true,
-    rules: {
-      required: t('label.field-required', { field: t('label.pattern-name') }),
+    props: {
+      'data-testid': 'recognizer-type-select',
+      options: recognizerTypeOptions,
     },
-    props: { 'data-testid': 'recognizer-pattern-name-input' },
   };
 
-  const patternRegexField: FieldProp = {
-    name: 'patternRegex',
-    label: t('label.pattern-regex'),
-    id: 'root/patternRegex',
-    type: FieldTypes.TEXT,
+  const exactTermsField: FieldProp = {
+    name: 'exactTerms',
+    label: t('label.exact-term-plural'),
+    id: 'root/exactTerms',
+    type: FieldTypes.TEXTAREA,
     required: true,
     rules: {
-      required: t('label.field-required', { field: t('label.pattern-regex') }),
+      required: t('label.field-required', {
+        field: t('label.exact-term-plural'),
+      }),
     },
-    props: { 'data-testid': 'recognizer-pattern-regex-input' },
-  };
-
-  const patternScoreField: FieldProp = {
-    name: 'patternScore',
-    label: t('label.pattern-score'),
-    id: 'root/patternScore',
-    type: FieldTypes.NUMBER,
-    props: { 'data-testid': 'recognizer-pattern-score-input' },
+    helperText: t('message.comma-separated-values-hint'),
+    helperTextType: HelperTextType.TOOLTIP,
+    props: { 'data-testid': 'recognizer-exact-terms-input' },
   };
 
   const dotAllField: FieldProp = {
@@ -206,6 +261,62 @@ const RecognizerFormDrawer = ({
     props: { 'data-testid': 'recognizer-multiline-checkbox' },
   };
 
+  const patternRows = patternFields.map((field, index) => {
+    const patternNameField: FieldProp = {
+      name: `patterns.${index}.name`,
+      label: t('label.pattern-name'),
+      id: `root/patterns/${index}/name`,
+      type: FieldTypes.TEXT,
+      required: true,
+      rules: {
+        required: t('label.field-required', {
+          field: t('label.pattern-name'),
+        }),
+      },
+      props: { 'data-testid': `recognizer-pattern-name-input-${index}` },
+    };
+
+    const patternRegexField: FieldProp = {
+      name: `patterns.${index}.regex`,
+      label: t('label.pattern-regex'),
+      id: `root/patterns/${index}/regex`,
+      type: FieldTypes.TEXT,
+      required: true,
+      rules: {
+        required: t('label.field-required', {
+          field: t('label.pattern-regex'),
+        }),
+      },
+      props: { 'data-testid': `recognizer-pattern-regex-input-${index}` },
+    };
+
+    const patternScoreField: FieldProp = {
+      name: `patterns.${index}.score`,
+      label: t('label.pattern-score'),
+      id: `root/patterns/${index}/score`,
+      type: FieldTypes.NUMBER,
+      props: { 'data-testid': `recognizer-pattern-score-input-${index}` },
+    };
+
+    return (
+      <Box className="tw:flex tw:items-start tw:gap-2" key={field.id}>
+        <Box className="tw:flex tw:flex-1 tw:flex-col tw:gap-2">
+          {getField(patternNameField)}
+          {getField(patternRegexField)}
+          {getField(patternScoreField)}
+        </Box>
+        {patternFields.length > 1 && (
+          <ButtonUtility
+            color="tertiary"
+            data-testid={`remove-pattern-button-${index}`}
+            icon={<Trash01 height={16} width={16} />}
+            onClick={() => removePattern(index)}
+          />
+        )}
+      </Box>
+    );
+  });
+
   const { formDrawer } = useFormDrawerWithHook<RecognizerFormValues>({
     title: recognizer
       ? t('label.edit-entity', { entity: t('label.recognizer') })
@@ -222,12 +333,26 @@ const RecognizerFormDrawer = ({
         {getField(displayNameField)}
         {getField(targetField)}
         {getField(confidenceThresholdField)}
-        {getField(patternNameField)}
-        {getField(patternRegexField)}
-        {getField(patternScoreField)}
-        {getField(dotAllField)}
-        {getField(ignoreCaseField)}
-        {getField(multilineField)}
+        {getField(recognizerTypeField)}
+        {isExactTerms ? (
+          getField(exactTermsField)
+        ) : (
+          <>
+            {getField(dotAllField)}
+            {getField(ignoreCaseField)}
+            {getField(multilineField)}
+            <Box className="tw:flex tw:flex-col tw:gap-3">
+              {patternRows}
+              <Button
+                color="secondary"
+                data-testid="add-pattern-button"
+                iconLeading={Plus}
+                onClick={() => appendPattern({ ...DEFAULT_PATTERN })}>
+                {t('label.add-entity', { entity: t('label.pattern-plural') })}
+              </Button>
+            </Box>
+          </>
+        )}
       </HookForm>
     ),
     onSubmit: (data) => handleFormSubmit(data),

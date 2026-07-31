@@ -19,17 +19,43 @@ import {
   useForm,
   useFormContext,
 } from 'react-hook-form';
-import { ClassificationLanguage } from '../../../generated/type/patternRecognizer';
-import { Recognizer, Target } from '../../../generated/type/recognizer';
+import {
+  ClassificationLanguage,
+  Recognizer,
+  Target,
+} from '../../../generated/type/recognizer';
 import RecognizerFormDrawer from './RecognizerFormDrawer';
 
 jest.mock('@openmetadata/ui-core-components', () => ({
+  Box: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Button: ({
+    children,
+    onClick,
+    ['data-testid']: testId,
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+    'data-testid'?: string;
+  }) => (
+    <button data-testid={testId} type="button" onClick={onClick}>
+      {children}
+    </button>
+  ),
+  ButtonUtility: ({
+    onClick,
+    ['data-testid']: testId,
+  }: {
+    onClick?: () => void;
+    'data-testid'?: string;
+  }) => <button data-testid={testId} type="button" onClick={onClick} />,
   FieldTypes: {
     CHECKBOX: 'CHECKBOX',
     NUMBER: 'NUMBER',
     SELECT: 'SELECT',
     TEXT: 'TEXT',
+    TEXTAREA: 'TEXTAREA',
   },
+  HelperTextType: { ALERT: 'alert', TOOLTIP: 'tooltip' },
   getField: ({
     name,
     label,
@@ -100,6 +126,19 @@ jest.mock('@openmetadata/ui-core-components', () => ({
         );
       }
 
+      if (type === 'TEXTAREA') {
+        return (
+          <div>
+            <label>{label}</label>
+            <textarea
+              data-testid={testId}
+              value={(field.value as string) ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+            />
+          </div>
+        );
+      }
+
       return (
         <div>
           <label>{label}</label>
@@ -155,7 +194,7 @@ jest.mock('../../../components/common/atoms/drawer/useFormDrawer', () => ({
   }),
 }));
 
-const mockExistingRecognizer: Recognizer = {
+const mockExistingPatternRecognizer: Recognizer = {
   id: 'r1',
   name: 'EmailPatternRecognizer',
   displayName: 'Email Pattern Recognizer',
@@ -164,10 +203,27 @@ const mockExistingRecognizer: Recognizer = {
   confidenceThreshold: 0.6,
   recognizerConfig: {
     type: 'pattern',
-    patterns: [{ name: 'EmailRegex', regex: '^.+@.+$', score: 0.8 }],
+    patterns: [
+      { name: 'EmailRegex', regex: '^.+@.+$', score: 0.8 },
+      { name: 'AltRegex', regex: '^.+$', score: 0.5 },
+    ],
     regexFlags: { dotAll: true, ignoreCase: false, multiline: true },
     supportedLanguage: ClassificationLanguage.En,
     context: [],
+  },
+};
+
+const mockExistingExactTermsRecognizer: Recognizer = {
+  id: 'r2',
+  name: 'DenylistRecognizer',
+  enabled: true,
+  target: Target.Content,
+  confidenceThreshold: 0.6,
+  recognizerConfig: {
+    type: 'exact_terms',
+    exactTerms: ['foo', 'bar'],
+    regexFlags: { dotAll: false, ignoreCase: false, multiline: false },
+    supportedLanguage: ClassificationLanguage.En,
   },
 };
 
@@ -175,19 +231,22 @@ describe('RecognizerFormDrawer', () => {
   const onCancel = jest.fn();
   const onSubmit = jest.fn();
 
-  it('should render empty fields in create mode', () => {
+  it('should render empty fields in create mode with a single pattern row', () => {
     render(<RecognizerFormDrawer onCancel={onCancel} onSubmit={onSubmit} />);
 
     expect(screen.getByTestId('recognizer-name-input')).toHaveValue('');
-    expect(screen.getByTestId('recognizer-pattern-regex-input')).toHaveValue(
+    expect(screen.getByTestId('recognizer-pattern-regex-input-0')).toHaveValue(
       ''
     );
+    expect(
+      screen.queryByTestId('recognizer-pattern-regex-input-1')
+    ).not.toBeInTheDocument();
   });
 
-  it('should pre-fill fields from the given recognizer in edit mode', () => {
+  it('should pre-fill fields from the given pattern recognizer in edit mode', () => {
     render(
       <RecognizerFormDrawer
-        recognizer={mockExistingRecognizer}
+        recognizer={mockExistingPatternRecognizer}
         onCancel={onCancel}
         onSubmit={onSubmit}
       />
@@ -196,15 +255,55 @@ describe('RecognizerFormDrawer', () => {
     expect(screen.getByTestId('recognizer-name-input')).toHaveValue(
       'EmailPatternRecognizer'
     );
-    expect(screen.getByTestId('recognizer-pattern-regex-input')).toHaveValue(
+    expect(screen.getByTestId('recognizer-pattern-regex-input-0')).toHaveValue(
       '^.+@.+$'
+    );
+    expect(screen.getByTestId('recognizer-pattern-regex-input-1')).toHaveValue(
+      '^.+$'
     );
     expect(screen.getByTestId('recognizer-target-select')).toHaveValue(
       'content'
     );
+    expect(screen.getByTestId('recognizer-type-select')).toHaveValue('pattern');
   });
 
-  it('should submit a Recognizer payload built from the form values', async () => {
+  it('should pre-fill exact terms from the given exact-terms recognizer in edit mode', () => {
+    render(
+      <RecognizerFormDrawer
+        recognizer={mockExistingExactTermsRecognizer}
+        onCancel={onCancel}
+        onSubmit={onSubmit}
+      />
+    );
+
+    expect(screen.getByTestId('recognizer-type-select')).toHaveValue(
+      'exact_terms'
+    );
+    expect(screen.getByTestId('recognizer-exact-terms-input')).toHaveValue(
+      'foo, bar'
+    );
+    expect(
+      screen.queryByTestId('recognizer-pattern-regex-input-0')
+    ).not.toBeInTheDocument();
+  });
+
+  it('should add and remove pattern rows', () => {
+    render(<RecognizerFormDrawer onCancel={onCancel} onSubmit={onSubmit} />);
+
+    fireEvent.click(screen.getByTestId('add-pattern-button'));
+
+    expect(
+      screen.getByTestId('recognizer-pattern-regex-input-1')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('remove-pattern-button-1'));
+
+    expect(
+      screen.queryByTestId('recognizer-pattern-regex-input-1')
+    ).not.toBeInTheDocument();
+  });
+
+  it('should submit a multi-pattern Recognizer payload built from the form values', async () => {
     render(<RecognizerFormDrawer onCancel={onCancel} onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByTestId('recognizer-name-input'), {
@@ -213,11 +312,19 @@ describe('RecognizerFormDrawer', () => {
     fireEvent.change(screen.getByTestId('recognizer-target-select'), {
       target: { value: 'content' },
     });
-    fireEvent.change(screen.getByTestId('recognizer-pattern-name-input'), {
+    fireEvent.change(screen.getByTestId('recognizer-pattern-name-input-0'), {
       target: { value: 'MyPattern' },
     });
-    fireEvent.change(screen.getByTestId('recognizer-pattern-regex-input'), {
+    fireEvent.change(screen.getByTestId('recognizer-pattern-regex-input-0'), {
       target: { value: '^abc$' },
+    });
+
+    fireEvent.click(screen.getByTestId('add-pattern-button'));
+    fireEvent.change(screen.getByTestId('recognizer-pattern-name-input-1'), {
+      target: { value: 'SecondPattern' },
+    });
+    fireEvent.change(screen.getByTestId('recognizer-pattern-regex-input-1'), {
+      target: { value: '^def$' },
     });
 
     fireEvent.click(screen.getByText('submit-hidden'));
@@ -231,7 +338,42 @@ describe('RecognizerFormDrawer', () => {
             type: 'pattern',
             patterns: [
               expect.objectContaining({ name: 'MyPattern', regex: '^abc$' }),
+              expect.objectContaining({
+                name: 'SecondPattern',
+                regex: '^def$',
+              }),
             ],
+          }),
+        })
+      )
+    );
+  });
+
+  it('should submit an exact-terms Recognizer payload when the type is switched', async () => {
+    render(<RecognizerFormDrawer onCancel={onCancel} onSubmit={onSubmit} />);
+
+    fireEvent.change(screen.getByTestId('recognizer-name-input'), {
+      target: { value: 'DenylistRecognizer' },
+    });
+    fireEvent.change(screen.getByTestId('recognizer-target-select'), {
+      target: { value: 'content' },
+    });
+    fireEvent.change(screen.getByTestId('recognizer-type-select'), {
+      target: { value: 'exact_terms' },
+    });
+    fireEvent.change(screen.getByTestId('recognizer-exact-terms-input'), {
+      target: { value: 'foo, bar,baz' },
+    });
+
+    fireEvent.click(screen.getByText('submit-hidden'));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'DenylistRecognizer',
+          recognizerConfig: expect.objectContaining({
+            type: 'exact_terms',
+            exactTerms: ['foo', 'bar', 'baz'],
           }),
         })
       )
