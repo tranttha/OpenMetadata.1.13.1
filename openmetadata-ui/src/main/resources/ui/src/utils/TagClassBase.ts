@@ -12,12 +12,14 @@
  */
 import { isEmpty } from 'lodash';
 import React from 'react';
+import TabsLabel from '../components/common/TabsLabel/TabsLabel.component';
 import { TabProps } from '../components/common/TabsLabel/TabsLabel.interface';
 import { CommonWidgets } from '../components/DataAssets/CommonWidgets/CommonWidgets';
 import { DomainLabelV2 } from '../components/DataAssets/DomainLabelV2/DomainLabelV2';
 import { OwnerLabelV2 } from '../components/DataAssets/OwnerLabelV2/OwnerLabelV2';
 import ReportTagPopover from '../components/Tag/RecognizerFeedback/ReportTagPopover';
 import { PAGE_SIZE } from '../constants/constants';
+import RecognizersTab from '../pages/TagPage/RecognizersTab/RecognizersTab.component';
 import {
   DESCRIPTION_WIDGET,
   GridSizes,
@@ -278,10 +280,21 @@ class TagClassBase {
   }
 
   public getAdditionalTagDetailPageTabs(
-    _tag: Tag,
-    _activeTab: string
+    tag: Tag,
+    activeTab: string
   ): TabProps[] {
-    return [];
+    return [
+      {
+        label: React.createElement(TabsLabel, {
+          id: EntityTabs.RECOGNIZER,
+          isActive: activeTab === EntityTabs.RECOGNIZER,
+          name: i18n.t('label.recognizer-plural'),
+          count: tag.recognizers?.length,
+        }),
+        key: EntityTabs.RECOGNIZER,
+        children: React.createElement(RecognizersTab, { tag }),
+      },
+    ];
   }
 }
 

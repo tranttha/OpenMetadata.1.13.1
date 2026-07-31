@@ -430,13 +430,21 @@ describe('TagClassBase', () => {
   });
 
   describe('getAdditionalTagDetailPageTabs', () => {
-    it('returns empty array in base class', () => {
+    it('returns a single Recognizers tab keyed by EntityTabs.RECOGNIZER', () => {
+      const tag = {
+        fullyQualifiedName: 'PII.Sensitive',
+        recognizers: [{ id: 'r1' }],
+      } as unknown as Tag;
+
       const tabs = tagClassBase.getAdditionalTagDetailPageTabs(
-        { fullyQualifiedName: 'PII.Sensitive' } as unknown as Tag,
-        'overview'
+        tag,
+        EntityTabs.RECOGNIZER
       );
 
-      expect(tabs).toEqual([]);
+      expect(tabs).toHaveLength(1);
+      expect(tabs[0].key).toBe(EntityTabs.RECOGNIZER);
+      expect(React.isValidElement(tabs[0].children)).toBe(true);
+      expect(tabs[0].children?.props).toMatchObject({ tag });
     });
   });
 });
