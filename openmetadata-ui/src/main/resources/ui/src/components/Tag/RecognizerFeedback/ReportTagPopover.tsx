@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
   Typography,
 } from '@openmetadata/ui-core-components';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getNameFromFQN } from '../../../utils/CommonUtils';
 import { formatDateTime } from '../../../utils/date-time/DateTimeUtils';
@@ -34,6 +34,7 @@ const ReportTagPopover = ({
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const triggerRef = useRef<HTMLSpanElement>(null);
 
   const recognizer = tagLabel.metadata?.recognizer;
   const patterns = recognizer?.patterns ?? [];
@@ -60,12 +61,14 @@ const ReportTagPopover = ({
   return (
     <PopoverTrigger isOpen={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
       <span
+        ref={triggerRef}
         onMouseEnter={() => setIsPopoverOpen(true)}
         onMouseLeave={() => setIsPopoverOpen(false)}>
         {children}
       </span>
       <Popover
         containerClassName="tw:w-80 tw:p-4"
+        triggerRef={triggerRef}
         onMouseEnter={() => setIsPopoverOpen(true)}
         onMouseLeave={() => setIsPopoverOpen(false)}>
         <div className="tw:flex tw:flex-col tw:gap-2">

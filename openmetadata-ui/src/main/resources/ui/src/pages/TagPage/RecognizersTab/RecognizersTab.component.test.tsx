@@ -66,7 +66,7 @@ jest.mock('../../../components/common/DeleteModal/DeleteModal', () => {
 
 jest.mock('../../../context/PermissionProvider/PermissionProvider', () => ({
   usePermissionProvider: () => ({
-    getEntityPermission: jest.fn().mockResolvedValue({ EditAll: true }),
+    permissions: { all: { All: true } },
   }),
 }));
 

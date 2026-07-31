@@ -27,9 +27,11 @@ import { useTranslation } from 'react-i18next';
 import DeleteModal from '../../../components/common/DeleteModal/DeleteModal';
 import { usePermissionProvider } from '../../../context/PermissionProvider/PermissionProvider';
 import { ResourceEntity } from '../../../context/PermissionProvider/PermissionProvider.interface';
+import { Operation } from '../../../generated/entity/policies/accessControl/rule';
 import { Recognizer } from '../../../generated/type/recognizer';
 import { patchTag } from '../../../rest/tagAPI';
 import { getEntityName } from '../../../utils/EntityUtils';
+import { checkPermission } from '../../../utils/PermissionsUtils';
 import { showErrorToast } from '../../../utils/ToastUtils';
 import RecognizerExceptionsModal from './RecognizerExceptionsModal';
 import RecognizerFormDrawer from './RecognizerFormDrawer';
@@ -37,12 +39,11 @@ import { RecognizersTabProps } from './RecognizersTab.interface';
 
 const RecognizersTab = ({ tag }: RecognizersTabProps) => {
   const { t } = useTranslation();
-  const { getEntityPermission } = usePermissionProvider();
+  const { permissions } = usePermissionProvider();
 
   const [recognizers, setRecognizers] = useState<Recognizer[]>(
     tag.recognizers ?? []
   );
-  const [canEdit, setCanEdit] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRecognizer, setEditingRecognizer] = useState<Recognizer>();
   const [viewingExceptionsRecognizer, setViewingExceptionsRecognizer] =
@@ -50,18 +51,15 @@ const RecognizersTab = ({ tag }: RecognizersTabProps) => {
   const [deletingRecognizer, setDeletingRecognizer] = useState<Recognizer>();
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const canEdit = checkPermission(
+    Operation.EditAll,
+    ResourceEntity.TAG,
+    permissions
+  );
+
   useEffect(() => {
     setRecognizers(tag.recognizers ?? []);
   }, [tag.recognizers]);
-
-  useEffect(() => {
-    if (!tag.id) {
-      return;
-    }
-    getEntityPermission(ResourceEntity.TAG, tag.id)
-      .then((permission) => setCanEdit(Boolean(permission.EditAll)))
-      .catch(() => setCanEdit(false));
-  }, [tag.id, getEntityPermission]);
 
   const persistRecognizers = async (nextRecognizers: Recognizer[]) => {
     const patch = compare({ recognizers }, { recognizers: nextRecognizers });
