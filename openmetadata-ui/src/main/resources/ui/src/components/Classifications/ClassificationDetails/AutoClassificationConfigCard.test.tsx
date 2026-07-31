@@ -12,8 +12,147 @@
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ReactNode } from 'react';
+import {
+  FormProvider,
+  useController,
+  useForm,
+  useFormContext,
+} from 'react-hook-form';
 import { ConflictResolution } from '../../../generated/entity/classification/classification';
 import AutoClassificationConfigCard from './AutoClassificationConfigCard';
+
+jest.mock('@openmetadata/ui-core-components', () => ({
+  Box: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Button: ({
+    children,
+    onClick,
+    ['data-testid']: testId,
+  }: {
+    children: ReactNode;
+    onClick?: () => void;
+    'data-testid'?: string;
+  }) => (
+    <button data-testid={testId} onClick={onClick}>
+      {children}
+    </button>
+  ),
+  Card: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Dialog: Object.assign(
+    ({ children }: { children: ReactNode }) => (
+      <div data-testid="auto-classification-config-modal">{children}</div>
+    ),
+    {
+      Header: ({ title }: { title?: string }) => <h1>{title}</h1>,
+      Content: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+      Footer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    }
+  ),
+  FieldTypes: { NUMBER: 'NUMBER', SELECT: 'SELECT', SWITCH: 'SWITCH' },
+  getField: ({
+    name,
+    label,
+    type,
+    props: fieldProps = {},
+  }: {
+    name: string;
+    label: ReactNode;
+    type: string;
+    props?: Record<string, unknown>;
+  }) => {
+    const testId = fieldProps['data-testid'] as string | undefined;
+
+    const MockField = () => {
+      const { control } = useFormContext();
+      const { field } = useController({ control, name });
+
+      if (type === 'SELECT') {
+        const options =
+          (fieldProps.options as { id: string; label: string }[]) ?? [];
+
+        return (
+          <div>
+            <label>{label}</label>
+            <select
+              data-testid={testId}
+              value={(field.value as { id: string } | null)?.id ?? ''}
+              onChange={(e) => {
+                const next = options.find((opt) => opt.id === e.target.value);
+                field.onChange(next ?? null);
+              }}>
+              <option value="" />
+              {options.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
+
+      if (type === 'SWITCH') {
+        return (
+          <div>
+            <label>{label}</label>
+            <input
+              checked={Boolean(field.value)}
+              data-testid={testId}
+              type="checkbox"
+              onChange={(e) => field.onChange(e.target.checked)}
+            />
+          </div>
+        );
+      }
+
+      if (type === 'NUMBER') {
+        return (
+          <div>
+            <label>{label}</label>
+            <input
+              data-testid={testId}
+              type="number"
+              value={(field.value as number) ?? ''}
+              onChange={(e) => field.onChange(Number(e.target.value))}
+            />
+          </div>
+        );
+      }
+
+      return <div data-testid={testId ?? name} />;
+    };
+
+    return <MockField />;
+  },
+  HookForm: ({
+    form,
+    children,
+    onSubmit,
+  }: {
+    form: ReturnType<typeof useForm>;
+    children: ReactNode;
+    onSubmit?: (e: React.FormEvent) => void;
+  }) => (
+    <FormProvider {...form}>
+      <form onSubmit={onSubmit}>{children}</form>
+    </FormProvider>
+  ),
+  Modal: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  ModalOverlay: ({
+    children,
+    isOpen,
+  }: {
+    children: ReactNode;
+    isOpen: boolean;
+  }) => (isOpen ? <div>{children}</div> : null),
+  Typography: ({
+    children,
+    ['data-testid']: testId,
+  }: {
+    children: ReactNode;
+    'data-testid'?: string;
+  }) => <span data-testid={testId}>{children}</span>,
+}));
 
 describe('AutoClassificationConfigCard', () => {
   it('should render default values when no config is provided', () => {
@@ -85,7 +224,7 @@ describe('AutoClassificationConfigCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('auto-classification-minimum-confidence-input')
-    ).toHaveValue('0.75');
+    ).toHaveValue(0.75);
   });
 
   it('should call onUpdate with the edited values on save', async () => {
@@ -107,7 +246,7 @@ describe('AutoClassificationConfigCard', () => {
     );
     fireEvent.change(confidenceInput, { target: { value: '0.9' } });
 
-    fireEvent.click(screen.getByText('label.save'));
+    fireEvent.click(screen.getByTestId('auto-classification-modal-save'));
 
     await waitFor(() =>
       expect(onUpdate).toHaveBeenCalledWith(
