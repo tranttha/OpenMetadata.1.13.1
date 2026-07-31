@@ -19,7 +19,6 @@ import { DomainLabelV2 } from '../components/DataAssets/DomainLabelV2/DomainLabe
 import { OwnerLabelV2 } from '../components/DataAssets/OwnerLabelV2/OwnerLabelV2';
 import ReportTagPopover from '../components/Tag/RecognizerFeedback/ReportTagPopover';
 import { PAGE_SIZE } from '../constants/constants';
-import RecognizersTab from '../pages/TagPage/RecognizersTab/RecognizersTab.component';
 import {
   DESCRIPTION_WIDGET,
   GridSizes,
@@ -32,6 +31,7 @@ import { Tag } from '../generated/entity/classification/tag';
 import { Tab } from '../generated/system/ui/uiCustomization';
 import { TagLabel } from '../generated/type/tagLabel';
 import { WidgetConfig } from '../pages/CustomizablePage/CustomizablePage.interface';
+import RecognizersTab from '../pages/TagPage/RecognizersTab/RecognizersTab.component';
 import { searchQuery } from '../rest/searchAPI';
 import { getTabLabelFromId } from './CustomizePage/CustomizePageUtils';
 import i18n from './i18next/LocalUtil';

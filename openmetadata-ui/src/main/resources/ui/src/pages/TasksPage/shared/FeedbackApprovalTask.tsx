@@ -38,10 +38,10 @@ import {
   TaskDetails,
   UserReason,
 } from '../../../generated/entity/feed/thread';
+import { getNameFromFQN } from '../../../utils/CommonUtils';
 import { formatDateTime } from '../../../utils/date-time/DateTimeUtils';
 import EntityLink from '../../../utils/EntityLink';
 import { getEntityName } from '../../../utils/EntityUtils';
-import { getNameFromFQN } from '../../../utils/CommonUtils';
 import { getEntityDetailsPath } from '../../../utils/RouterUtils';
 
 interface FeedbackApprovalTaskProps {
