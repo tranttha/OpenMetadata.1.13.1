@@ -16,12 +16,14 @@ import {
   Button,
   Card,
   Dialog,
-  FieldProp,
-  FieldTypes,
-  getField,
+  FormField,
   HookForm,
+  Input,
   Modal,
   ModalOverlay,
+  Select,
+  SelectItem,
+  Toggle,
   Typography,
 } from '@openmetadata/ui-core-components';
 import { useState } from 'react';
@@ -46,14 +48,14 @@ const CONFLICT_RESOLUTION_LABEL_KEYS: Record<ConflictResolution, string> = {
   [ConflictResolution.MostSpecific]: 'label.most-specific',
 };
 
-interface ConflictResolutionSelectItem {
+interface SelectOption {
   id: ConflictResolution;
   label: string;
 }
 
 interface AutoClassificationFormValues {
   enabled: boolean;
-  conflictResolution: ConflictResolutionSelectItem | null;
+  conflictResolution: ConflictResolution;
   minimumConfidence: number;
   requireExplicitMatch: boolean;
 }
@@ -65,12 +67,10 @@ interface AutoClassificationConfigCardProps {
 }
 
 const buildFormValues = (
-  config: Required<AutoClassificationConfig>,
-  options: ConflictResolutionSelectItem[]
+  config: Required<AutoClassificationConfig>
 ): AutoClassificationFormValues => ({
   enabled: config.enabled,
-  conflictResolution:
-    options.find((option) => option.id === config.conflictResolution) ?? null,
+  conflictResolution: config.conflictResolution,
   minimumConfidence: config.minimumConfidence,
   requireExplicitMatch: config.requireExplicitMatch,
 });
@@ -88,18 +88,19 @@ const AutoClassificationConfigCard = ({
     ...config,
   };
 
-  const conflictResolutionOptions: ConflictResolutionSelectItem[] =
-    Object.values(ConflictResolution).map((value) => ({
-      id: value,
-      label: t(CONFLICT_RESOLUTION_LABEL_KEYS[value]),
-    }));
+  const conflictResolutionOptions: SelectOption[] = Object.values(
+    ConflictResolution
+  ).map((value) => ({
+    id: value,
+    label: t(CONFLICT_RESOLUTION_LABEL_KEYS[value]),
+  }));
 
   const form = useForm<AutoClassificationFormValues>({
-    defaultValues: buildFormValues(effectiveConfig, conflictResolutionOptions),
+    defaultValues: buildFormValues(effectiveConfig),
   });
 
   const handleEditClick = () => {
-    form.reset(buildFormValues(effectiveConfig, conflictResolutionOptions));
+    form.reset(buildFormValues(effectiveConfig));
     setIsModalOpen(true);
   };
 
@@ -110,51 +111,11 @@ const AutoClassificationConfigCard = ({
   const handleSubmit = (values: AutoClassificationFormValues) => {
     onUpdate({
       enabled: values.enabled,
-      conflictResolution:
-        values.conflictResolution?.id ?? DEFAULT_CONFIG.conflictResolution,
+      conflictResolution: values.conflictResolution,
       minimumConfidence: values.minimumConfidence,
       requireExplicitMatch: values.requireExplicitMatch,
     });
     setIsModalOpen(false);
-  };
-
-  const enabledField: FieldProp = {
-    name: 'enabled',
-    label: t('label.enabled'),
-    id: 'root/enabled',
-    type: FieldTypes.SWITCH,
-    props: { 'data-testid': 'auto-classification-enabled-switch' },
-  };
-
-  const conflictResolutionField: FieldProp = {
-    name: 'conflictResolution',
-    label: t('label.conflict-resolution'),
-    id: 'root/conflictResolution',
-    type: FieldTypes.SELECT,
-    props: {
-      'data-testid': 'auto-classification-conflict-resolution-select',
-      options: conflictResolutionOptions,
-    },
-  };
-
-  const minimumConfidenceField: FieldProp = {
-    name: 'minimumConfidence',
-    label: t('label.minimum-confidence'),
-    id: 'root/minimumConfidence',
-    type: FieldTypes.NUMBER,
-    props: {
-      'data-testid': 'auto-classification-minimum-confidence-input',
-    },
-  };
-
-  const requireExplicitMatchField: FieldProp = {
-    name: 'requireExplicitMatch',
-    label: t('label.require-explicit-match'),
-    id: 'root/requireExplicitMatch',
-    type: FieldTypes.SWITCH,
-    props: {
-      'data-testid': 'auto-classification-require-explicit-match-switch',
-    },
   };
 
   return (
@@ -218,11 +179,58 @@ const AutoClassificationConfigCard = ({
               })}
             />
             <Dialog.Content>
-              <HookForm form={form} onSubmit={form.handleSubmit(handleSubmit)}>
-                {getField(enabledField)}
-                {getField(conflictResolutionField)}
-                {getField(minimumConfidenceField)}
-                {getField(requireExplicitMatchField)}
+              <HookForm
+                className="tw:flex tw:flex-col tw:gap-4"
+                form={form}
+                onSubmit={form.handleSubmit(handleSubmit)}>
+                <FormField control={form.control} name="enabled">
+                  {({ field }) => (
+                    <Toggle
+                      data-testid="auto-classification-enabled-switch"
+                      isSelected={field.value}
+                      label={t('label.enabled')}
+                      onChange={field.onChange}
+                    />
+                  )}
+                </FormField>
+                <FormField control={form.control} name="conflictResolution">
+                  {({ field }) => (
+                    <Select
+                      data-testid="auto-classification-conflict-resolution-select"
+                      items={conflictResolutionOptions}
+                      label={t('label.conflict-resolution')}
+                      selectedKey={field.value}
+                      onSelectionChange={(key) =>
+                        field.onChange(key as ConflictResolution)
+                      }>
+                      {(item) => (
+                        <SelectItem id={item.id}>{item.label}</SelectItem>
+                      )}
+                    </Select>
+                  )}
+                </FormField>
+                <FormField control={form.control} name="minimumConfidence">
+                  {({ field }) => (
+                    <Input
+                      data-testid="auto-classification-minimum-confidence-input"
+                      label={t('label.minimum-confidence')}
+                      type="number"
+                      value={String(field.value)}
+                      onBlur={field.onBlur}
+                      onChange={(value) => field.onChange(Number(value))}
+                    />
+                  )}
+                </FormField>
+                <FormField control={form.control} name="requireExplicitMatch">
+                  {({ field }) => (
+                    <Toggle
+                      data-testid="auto-classification-require-explicit-match-switch"
+                      isSelected={field.value}
+                      label={t('label.require-explicit-match')}
+                      onChange={field.onChange}
+                    />
+                  )}
+                </FormField>
               </HookForm>
             </Dialog.Content>
             <Dialog.Footer>

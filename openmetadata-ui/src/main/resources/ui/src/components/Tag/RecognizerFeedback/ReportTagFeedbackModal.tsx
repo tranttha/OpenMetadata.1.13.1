@@ -14,13 +14,13 @@
 import {
   Button,
   Dialog,
-  FieldProp,
-  FieldTypes,
-  FormSelectItem,
-  getField,
+  FormField,
   HookForm,
   Modal,
   ModalOverlay,
+  Select,
+  SelectItem,
+  TextArea,
   Typography,
 } from '@openmetadata/ui-core-components';
 import { AxiosError } from 'axios';
@@ -43,26 +43,23 @@ import tagClassBase from '../../../utils/TagClassBase';
 import { showErrorToast, showSuccessToast } from '../../../utils/ToastUtils';
 import { ReportTagFeedbackModalProps } from './ReportTagFeedbackModal.interface';
 
-interface EnumSelectItem<T extends string> extends FormSelectItem {
-  id: T;
-}
-
-interface SuggestedTagSelectItem extends FormSelectItem {
-  value: string;
+interface SelectOption {
+  id: string;
+  label: string;
 }
 
 interface FeedbackFormValues {
-  feedbackType: EnumSelectItem<FeedbackType> | null;
-  userReason: EnumSelectItem<UserReason> | null;
+  feedbackType: FeedbackType | '';
+  userReason: UserReason | '';
   userComments: string;
-  suggestedTag: SuggestedTagSelectItem | null;
+  suggestedTag: string;
 }
 
 const FORM_DEFAULT_VALUES: FeedbackFormValues = {
-  feedbackType: null,
-  userReason: null,
+  feedbackType: '',
+  userReason: '',
   userComments: '',
-  suggestedTag: null,
+  suggestedTag: '',
 };
 
 const ReportTagFeedbackModal = ({
@@ -76,7 +73,7 @@ const ReportTagFeedbackModal = ({
     defaultValues: FORM_DEFAULT_VALUES,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [tagOptions, setTagOptions] = useState<SuggestedTagSelectItem[]>([]);
+  const [tagOptions, setTagOptions] = useState<SelectOption[]>([]);
 
   const tableFqn = getTableFQNFromColumnFQN(entityFqn);
   const columnName = EntityLink.getTableColumnNameFromColumnFqn(
@@ -86,7 +83,7 @@ const ReportTagFeedbackModal = ({
   const columnDisplayName = `${getNameFromFQN(tableFqn)}.${columnName}`;
   const tagDisplayName = getNameFromFQN(tagLabel.tagFQN);
 
-  const feedbackTypeOptions: EnumSelectItem<FeedbackType>[] = [
+  const feedbackTypeOptions: SelectOption[] = [
     {
       id: FeedbackType.FalsePositive,
       label: t('label.feedback-type-false-positive'),
@@ -105,7 +102,7 @@ const ReportTagFeedbackModal = ({
     },
   ];
 
-  const userReasonOptions: EnumSelectItem<UserReason>[] = [
+  const userReasonOptions: SelectOption[] = [
     {
       id: UserReason.NotSensitiveData,
       label: t('label.user-reason-not-sensitive-data'),
@@ -134,7 +131,7 @@ const ReportTagFeedbackModal = ({
     try {
       const response = await tagClassBase.getTags(searchText, 1, true);
       const options = (response?.data ?? [])
-        .map((option): SuggestedTagSelectItem | null => {
+        .map((option): SelectOption | null => {
           const tag = option.data as {
             fullyQualifiedName?: string;
             displayName?: string;
@@ -145,11 +142,10 @@ const ReportTagFeedbackModal = ({
             ? {
                 id: tag.fullyQualifiedName,
                 label: tag.displayName || tag.name || tag.fullyQualifiedName,
-                value: tag.fullyQualifiedName,
               }
             : null;
         })
-        .filter((opt): opt is SuggestedTagSelectItem => opt !== null);
+        .filter((opt): opt is SelectOption => opt !== null);
 
       setTagOptions(options);
     } catch {
@@ -163,13 +159,30 @@ const ReportTagFeedbackModal = ({
   );
 
   const handleFormSubmit = async (values: FeedbackFormValues) => {
+    if (!values.feedbackType) {
+      form.setError('feedbackType', {
+        message: t('label.field-required', {
+          field: t('label.feedback-type'),
+        }),
+      });
+
+      return;
+    }
+    if (!values.userReason) {
+      form.setError('userReason', {
+        message: t('label.field-required', { field: t('label.user-reason') }),
+      });
+
+      return;
+    }
+
     const payload: RecognizerFeedback = {
       entityLink: EntityLink.getTableEntityLink(tableFqn, columnName),
       tagFQN: tagLabel.tagFQN,
-      feedbackType: values.feedbackType?.id as FeedbackType,
-      userReason: values.userReason?.id as UserReason,
+      feedbackType: values.feedbackType,
+      userReason: values.userReason,
       userComments: values.userComments || undefined,
-      suggestedTag: values.suggestedTag?.value,
+      suggestedTag: values.suggestedTag || undefined,
     };
 
     setIsSubmitting(true);
@@ -186,65 +199,6 @@ const ReportTagFeedbackModal = ({
 
   const handleReset = () => {
     form.reset(FORM_DEFAULT_VALUES);
-  };
-
-  const feedbackTypeField: FieldProp = {
-    name: 'feedbackType',
-    label: t('label.feedback-type'),
-    id: 'root/feedbackType',
-    type: FieldTypes.SELECT,
-    required: true,
-    rules: {
-      required: t('label.field-required', {
-        field: t('label.feedback-type'),
-      }),
-    },
-    props: {
-      'data-testid': 'report-tag-feedback-type-select',
-      options: feedbackTypeOptions,
-    },
-    placeholder: t('label.select-field', { field: t('label.feedback-type') }),
-  };
-
-  const userReasonField: FieldProp = {
-    name: 'userReason',
-    label: t('label.user-reason'),
-    id: 'root/userReason',
-    type: FieldTypes.SELECT,
-    required: true,
-    rules: {
-      required: t('label.field-required', { field: t('label.user-reason') }),
-    },
-    props: {
-      'data-testid': 'report-tag-user-reason-select',
-      options: userReasonOptions,
-    },
-    placeholder: t('label.select-field', { field: t('label.user-reason') }),
-  };
-
-  const commentsField: FieldProp = {
-    name: 'userComments',
-    label: t('label.comment'),
-    id: 'root/userComments',
-    type: FieldTypes.TEXTAREA,
-    props: { 'data-testid': 'report-tag-comments-input' },
-    placeholder: t('message.report-tag-comment-placeholder'),
-  };
-
-  const suggestedTagField: FieldProp = {
-    name: 'suggestedTag',
-    label: t('label.suggested-tag'),
-    id: 'root/suggestedTag',
-    type: FieldTypes.TAG_SUGGESTION,
-    props: {
-      'data-testid': 'report-tag-suggested-tag-select',
-      multiple: false,
-      filterOption: () => true,
-      onFocus: () => void fetchTagOptions(),
-      onSearchChange: (text: string) => debouncedTagSearch(text),
-      options: tagOptions,
-    },
-    placeholder: t('label.select-field', { field: t('label.suggested-tag') }),
   };
 
   return (
@@ -289,11 +243,82 @@ const ReportTagFeedbackModal = ({
               id="report-tag-feedback-form"
               onSubmit={form.handleSubmit(handleFormSubmit)}>
               <div className="tw:grid tw:grid-cols-2 tw:gap-4">
-                <div>{getField(feedbackTypeField)}</div>
-                <div>{getField(userReasonField)}</div>
+                <FormField control={form.control} name="feedbackType">
+                  {({ field, fieldState }) => (
+                    <Select
+                      isRequired
+                      data-testid="report-tag-feedback-type-select"
+                      hint={fieldState.error?.message}
+                      items={feedbackTypeOptions}
+                      label={t('label.feedback-type')}
+                      placeholder={t('label.select-field', {
+                        field: t('label.feedback-type'),
+                      })}
+                      selectedKey={field.value || null}
+                      onSelectionChange={(key) =>
+                        field.onChange(key as FeedbackType)
+                      }>
+                      {(item) => (
+                        <SelectItem id={item.id}>{item.label}</SelectItem>
+                      )}
+                    </Select>
+                  )}
+                </FormField>
+                <FormField control={form.control} name="userReason">
+                  {({ field, fieldState }) => (
+                    <Select
+                      isRequired
+                      data-testid="report-tag-user-reason-select"
+                      hint={fieldState.error?.message}
+                      items={userReasonOptions}
+                      label={t('label.user-reason')}
+                      placeholder={t('label.select-field', {
+                        field: t('label.user-reason'),
+                      })}
+                      selectedKey={field.value || null}
+                      onSelectionChange={(key) =>
+                        field.onChange(key as UserReason)
+                      }>
+                      {(item) => (
+                        <SelectItem id={item.id}>{item.label}</SelectItem>
+                      )}
+                    </Select>
+                  )}
+                </FormField>
               </div>
-              {getField(commentsField)}
-              {getField(suggestedTagField)}
+              <FormField control={form.control} name="userComments">
+                {({ field }) => (
+                  <TextArea
+                    data-testid="report-tag-comments-input"
+                    label={t('label.comment')}
+                    placeholder={t('message.report-tag-comment-placeholder')}
+                    value={field.value}
+                    onBlur={field.onBlur}
+                    onChange={field.onChange}
+                  />
+                )}
+              </FormField>
+              <FormField control={form.control} name="suggestedTag">
+                {({ field }) => (
+                  <Select.ComboBox
+                    data-testid="report-tag-suggested-tag-select"
+                    items={tagOptions}
+                    label={t('label.suggested-tag')}
+                    placeholder={t('label.select-field', {
+                      field: t('label.suggested-tag'),
+                    })}
+                    selectedKey={field.value || null}
+                    onFocus={() => void fetchTagOptions()}
+                    onInputChange={(text) => debouncedTagSearch(text)}
+                    onSelectionChange={(key) =>
+                      field.onChange((key as string) ?? '')
+                    }>
+                    {(item) => (
+                      <SelectItem id={item.id}>{item.label}</SelectItem>
+                    )}
+                  </Select.ComboBox>
+                )}
+              </FormField>
             </HookForm>
           </Dialog.Content>
 

@@ -13,12 +13,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import {
-  FormProvider,
-  useController,
-  useForm,
-  useFormContext,
-} from 'react-hook-form';
+import { Control, FieldValues, FormProvider, useForm } from 'react-hook-form';
 import {
   LabelType,
   State,
@@ -45,135 +40,155 @@ jest.mock('../../../utils/TagClassBase', () => ({
   },
 }));
 
-jest.mock('@openmetadata/ui-core-components', () => ({
-  Button: ({
-    children,
-    onClick,
-    ['data-testid']: testId,
-  }: {
-    children: ReactNode;
-    onClick?: () => void;
-    'data-testid'?: string;
-  }) => (
-    <button data-testid={testId} onClick={onClick}>
-      {children}
-    </button>
-  ),
-  Dialog: Object.assign(
-    ({ children }: { children: ReactNode }) => (
-      <div data-testid="report-tag-feedback-modal">{children}</div>
-    ),
-    {
-      Header: ({
-        title,
-        children,
-      }: {
-        title?: string;
-        children?: ReactNode;
-      }) => (
-        <div>
-          <h1>{title}</h1>
-          {children}
-        </div>
-      ),
-      Content: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-      Footer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    }
-  ),
-  FieldTypes: {
-    SELECT: 'SELECT',
-    TAG_SUGGESTION: 'TAG_SUGGESTION',
-    TEXTAREA: 'TEXTAREA',
-  },
-  getField: ({
+type SelectOption = { id: string; label: string };
+
+jest.mock('@openmetadata/ui-core-components', () => {
+  const { useController: mockUseController } = require('react-hook-form');
+
+  const MockFormField = ({
+    control,
     name,
-    label,
-    type,
-    props: fieldProps = {},
+    children,
   }: {
+    control: Control<FieldValues>;
     name: string;
-    label: ReactNode;
-    type: string;
-    props?: Record<string, unknown>;
+    children: (controller: ReturnType<typeof mockUseController>) => ReactNode;
   }) => {
-    const testId = fieldProps['data-testid'] as string | undefined;
+    const controller = mockUseController({ control, name });
 
-    const MockField = () => {
-      const { control } = useFormContext();
-      const { field } = useController({ control, name });
+    return <>{children(controller)}</>;
+  };
 
-      if (type === 'SELECT') {
-        const options =
-          (fieldProps.options as { id: string; label: string }[]) ?? [];
+  const MockSelect = Object.assign(
+    ({
+      label,
+      items = [],
+      selectedKey,
+      onSelectionChange,
+      ['data-testid']: testId,
+    }: {
+      label?: string;
+      items?: SelectOption[];
+      selectedKey?: string | null;
+      onSelectionChange?: (key: string) => void;
+      'data-testid'?: string;
+    }) => (
+      <div>
+        <label>{label}</label>
+        <select
+          data-testid={testId}
+          value={selectedKey ?? ''}
+          onChange={(e) => onSelectionChange?.(e.target.value)}>
+          <option value="" />
+          {items.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    ),
+    { ComboBox: undefined as unknown }
+  );
+  MockSelect.ComboBox = MockSelect;
 
-        return (
-          <div>
-            <label>{label}</label>
-            <select
-              data-testid={testId}
-              value={(field.value as { id: string } | null)?.id ?? ''}
-              onChange={(e) => {
-                const next = options.find((opt) => opt.id === e.target.value);
-                field.onChange(next ?? null);
-              }}>
-              <option value="" />
-              {options.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        );
-      }
-
-      if (type === 'TEXTAREA') {
-        return (
-          <div>
-            <label>{label}</label>
-            <textarea
-              data-testid={testId}
-              value={(field.value as string) ?? ''}
-              onChange={(e) => field.onChange(e.target.value)}
-            />
-          </div>
-        );
-      }
-
-      return <div data-testid={testId ?? name} />;
-    };
-
-    return <MockField />;
-  },
-  HookForm: ({
-    form,
-    children,
-    id,
-    onSubmit,
-  }: {
-    form: ReturnType<typeof useForm>;
-    children: ReactNode;
-    id?: string;
-    onSubmit?: (e: React.FormEvent) => void;
-  }) => (
-    <FormProvider {...form}>
-      <form id={id} onSubmit={onSubmit}>
+  return {
+    Button: ({
+      children,
+      onClick,
+      ['data-testid']: testId,
+    }: {
+      children: ReactNode;
+      onClick?: () => void;
+      'data-testid'?: string;
+    }) => (
+      <button data-testid={testId} onClick={onClick}>
         {children}
-      </form>
-    </FormProvider>
-  ),
-  Modal: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  ModalOverlay: ({
-    children,
-    isOpen,
-  }: {
-    children: ReactNode;
-    isOpen: boolean;
-  }) => (isOpen ? <div>{children}</div> : null),
-  Typography: ({ children }: { children: ReactNode }) => (
-    <span>{children}</span>
-  ),
-}));
+      </button>
+    ),
+    Dialog: Object.assign(
+      ({ children }: { children: ReactNode }) => (
+        <div data-testid="report-tag-feedback-modal">{children}</div>
+      ),
+      {
+        Header: ({
+          title,
+          children,
+        }: {
+          title?: string;
+          children?: ReactNode;
+        }) => (
+          <div>
+            <h1>{title}</h1>
+            {children}
+          </div>
+        ),
+        Content: ({ children }: { children: ReactNode }) => (
+          <div>{children}</div>
+        ),
+        Footer: ({ children }: { children: ReactNode }) => (
+          <div>{children}</div>
+        ),
+      }
+    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    FormField: MockFormField as any,
+    HookForm: ({
+      form,
+      children,
+      id,
+      onSubmit,
+    }: {
+      form: ReturnType<typeof useForm>;
+      children: ReactNode;
+      id?: string;
+      onSubmit?: (e: React.FormEvent) => void;
+    }) => (
+      <FormProvider {...form}>
+        <form id={id} onSubmit={onSubmit}>
+          {children}
+        </form>
+      </FormProvider>
+    ),
+    Modal: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    ModalOverlay: ({
+      children,
+      isOpen,
+    }: {
+      children: ReactNode;
+      isOpen: boolean;
+    }) => (isOpen ? <div>{children}</div> : null),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Select: MockSelect as any,
+    SelectItem: ({ children }: { children: ReactNode }) => <>{children}</>,
+    TextArea: ({
+      label,
+      value,
+      onChange,
+      onBlur,
+      ['data-testid']: testId,
+    }: {
+      label?: string;
+      value?: string;
+      onChange?: (value: string) => void;
+      onBlur?: () => void;
+      'data-testid'?: string;
+    }) => (
+      <div>
+        <label>{label}</label>
+        <textarea
+          data-testid={testId}
+          value={value ?? ''}
+          onBlur={onBlur}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
+      </div>
+    ),
+    Typography: ({ children }: { children: ReactNode }) => (
+      <span>{children}</span>
+    ),
+  };
+});
 
 const mockTagLabel: TagLabel = {
   tagFQN: 'PII.Email',

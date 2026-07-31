@@ -15,16 +15,18 @@ import {
   Box,
   Button,
   ButtonUtility,
-  FieldProp,
-  FieldTypes,
-  getField,
-  HelperTextType,
+  Checkbox,
+  FormField,
   HookForm,
+  Input,
+  Select,
+  SelectItem,
+  TextArea,
 } from '@openmetadata/ui-core-components';
 import { Plus, Trash01 } from '@untitledui/icons';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useFormDrawerWithHook } from '../../../components/common/atoms/drawer/useFormDrawer';
+import { useFormDrawer } from '../../../components/common/atoms/drawer/useFormDrawer';
 import {
   ClassificationLanguage,
   Pattern,
@@ -38,22 +40,17 @@ type RecognizerType = 'pattern' | 'exact_terms';
 const PATTERN_RECOGNIZER_TYPE: RecognizerType = 'pattern';
 const EXACT_TERMS_RECOGNIZER_TYPE: RecognizerType = 'exact_terms';
 
-interface TargetSelectItem {
-  id: Target;
-  label: string;
-}
-
-interface RecognizerTypeSelectItem {
-  id: RecognizerType;
+interface SelectOption {
+  id: string;
   label: string;
 }
 
 interface RecognizerFormValues {
   name: string;
   displayName: string;
-  target: TargetSelectItem | null;
+  target: Target | '';
   confidenceThreshold: number;
-  recognizerType: RecognizerTypeSelectItem | null;
+  recognizerType: RecognizerType;
   patterns: Pattern[];
   exactTerms: string;
   dotAll: boolean;
@@ -73,11 +70,9 @@ const getDefaultValues = (recognizer?: Recognizer): RecognizerFormValues => {
   return {
     name: recognizer?.name ?? '',
     displayName: recognizer?.displayName ?? '',
-    target: recognizer?.target
-      ? { id: recognizer.target, label: recognizer.target }
-      : null,
+    target: recognizer?.target ?? '',
     confidenceThreshold: recognizer?.confidenceThreshold ?? 0.5,
-    recognizerType: { id: recognizerType, label: recognizerType },
+    recognizerType,
     patterns:
       !isExactTerms && config?.patterns && config.patterns.length > 0
         ? config.patterns
@@ -100,8 +95,7 @@ const buildRecognizerPayload = (
   values: RecognizerFormValues,
   recognizer?: Recognizer
 ): Recognizer => {
-  const recognizerType = values.recognizerType?.id ?? PATTERN_RECOGNIZER_TYPE;
-  const isExactTerms = recognizerType === EXACT_TERMS_RECOGNIZER_TYPE;
+  const isExactTerms = values.recognizerType === EXACT_TERMS_RECOGNIZER_TYPE;
   const regexFlags = {
     dotAll: values.dotAll,
     ignoreCase: values.ignoreCase,
@@ -112,7 +106,7 @@ const buildRecognizerPayload = (
     ...recognizer,
     name: values.name,
     displayName: values.displayName || undefined,
-    target: values.target?.id as Target,
+    target: values.target as Target,
     confidenceThreshold: values.confidenceThreshold,
     enabled: recognizer?.enabled ?? true,
     recognizerConfig: isExactTerms
@@ -151,196 +145,211 @@ const RecognizerFormDrawer = ({
   } = useFieldArray({ control: form.control, name: 'patterns' });
 
   const recognizerType =
-    useWatch({ control: form.control, name: 'recognizerType' })?.id ??
+    useWatch({ control: form.control, name: 'recognizerType' }) ??
     PATTERN_RECOGNIZER_TYPE;
   const isExactTerms = recognizerType === EXACT_TERMS_RECOGNIZER_TYPE;
 
-  const targetOptions: TargetSelectItem[] = [
+  const targetOptions: SelectOption[] = [
     { id: Target.Content, label: t('label.target-content') },
     { id: Target.ColumnName, label: t('label.target-column-name') },
   ];
 
-  const recognizerTypeOptions: RecognizerTypeSelectItem[] = [
+  const recognizerTypeOptions: SelectOption[] = [
     { id: PATTERN_RECOGNIZER_TYPE, label: t('label.pattern') },
     { id: EXACT_TERMS_RECOGNIZER_TYPE, label: t('label.exact-term-plural') },
   ];
 
-  const handleFormSubmit = (values: RecognizerFormValues) =>
-    onSubmit(buildRecognizerPayload(values, recognizer));
+  const handleFormSubmit = async (values: RecognizerFormValues) => {
+    if (!values.name) {
+      form.setError('name', {
+        message: t('label.field-required', { field: t('label.name') }),
+      });
 
-  const nameField: FieldProp = {
-    name: 'name',
-    label: t('label.name'),
-    id: 'root/name',
-    type: FieldTypes.TEXT,
-    required: true,
-    rules: { required: t('label.field-required', { field: t('label.name') }) },
-    props: { 'data-testid': 'recognizer-name-input' },
+      return;
+    }
+    if (!values.target) {
+      form.setError('target', {
+        message: t('label.field-required', { field: t('label.target') }),
+      });
+
+      return;
+    }
+
+    await onSubmit(buildRecognizerPayload(values, recognizer));
   };
 
-  const displayNameField: FieldProp = {
-    name: 'displayName',
-    label: t('label.display-name'),
-    id: 'root/displayName',
-    type: FieldTypes.TEXT,
-    props: { 'data-testid': 'recognizer-display-name-input' },
-  };
-
-  const targetField: FieldProp = {
-    name: 'target',
-    label: t('label.target'),
-    id: 'root/target',
-    type: FieldTypes.SELECT,
-    required: true,
-    rules: {
-      required: t('label.field-required', { field: t('label.target') }),
-    },
-    props: {
-      'data-testid': 'recognizer-target-select',
-      options: targetOptions,
-    },
-  };
-
-  const confidenceThresholdField: FieldProp = {
-    name: 'confidenceThreshold',
-    label: t('label.confidence-threshold'),
-    id: 'root/confidenceThreshold',
-    type: FieldTypes.NUMBER,
-    props: { 'data-testid': 'recognizer-confidence-threshold-input' },
-  };
-
-  const recognizerTypeField: FieldProp = {
-    name: 'recognizerType',
-    label: t('label.recognizer-type'),
-    id: 'root/recognizerType',
-    type: FieldTypes.SELECT,
-    required: true,
-    props: {
-      'data-testid': 'recognizer-type-select',
-      options: recognizerTypeOptions,
-    },
-  };
-
-  const exactTermsField: FieldProp = {
-    name: 'exactTerms',
-    label: t('label.exact-term-plural'),
-    id: 'root/exactTerms',
-    type: FieldTypes.TEXTAREA,
-    required: true,
-    rules: {
-      required: t('label.field-required', {
-        field: t('label.exact-term-plural'),
-      }),
-    },
-    helperText: t('message.comma-separated-values-hint'),
-    helperTextType: HelperTextType.TOOLTIP,
-    props: { 'data-testid': 'recognizer-exact-terms-input' },
-  };
-
-  const dotAllField: FieldProp = {
-    name: 'dotAll',
-    label: t('label.dot-all'),
-    id: 'root/dotAll',
-    type: FieldTypes.CHECKBOX,
-    props: { 'data-testid': 'recognizer-dot-all-checkbox' },
-  };
-
-  const ignoreCaseField: FieldProp = {
-    name: 'ignoreCase',
-    label: t('label.ignore-case'),
-    id: 'root/ignoreCase',
-    type: FieldTypes.CHECKBOX,
-    props: { 'data-testid': 'recognizer-ignore-case-checkbox' },
-  };
-
-  const multilineField: FieldProp = {
-    name: 'multiline',
-    label: t('label.multiline'),
-    id: 'root/multiline',
-    type: FieldTypes.CHECKBOX,
-    props: { 'data-testid': 'recognizer-multiline-checkbox' },
-  };
-
-  const patternRows = patternFields.map((field, index) => {
-    const patternNameField: FieldProp = {
-      name: `patterns.${index}.name`,
-      label: t('label.pattern-name'),
-      id: `root/patterns/${index}/name`,
-      type: FieldTypes.TEXT,
-      required: true,
-      rules: {
-        required: t('label.field-required', {
-          field: t('label.pattern-name'),
-        }),
-      },
-      props: { 'data-testid': `recognizer-pattern-name-input-${index}` },
-    };
-
-    const patternRegexField: FieldProp = {
-      name: `patterns.${index}.regex`,
-      label: t('label.pattern-regex'),
-      id: `root/patterns/${index}/regex`,
-      type: FieldTypes.TEXT,
-      required: true,
-      rules: {
-        required: t('label.field-required', {
-          field: t('label.pattern-regex'),
-        }),
-      },
-      props: { 'data-testid': `recognizer-pattern-regex-input-${index}` },
-    };
-
-    const patternScoreField: FieldProp = {
-      name: `patterns.${index}.score`,
-      label: t('label.pattern-score'),
-      id: `root/patterns/${index}/score`,
-      type: FieldTypes.NUMBER,
-      props: { 'data-testid': `recognizer-pattern-score-input-${index}` },
-    };
-
-    return (
-      <Box className="tw:flex tw:items-start tw:gap-2" key={field.id}>
-        <Box className="tw:flex tw:flex-1 tw:flex-col tw:gap-2">
-          {getField(patternNameField)}
-          {getField(patternRegexField)}
-          {getField(patternScoreField)}
-        </Box>
-        {patternFields.length > 1 && (
-          <ButtonUtility
-            color="tertiary"
-            data-testid={`remove-pattern-button-${index}`}
-            icon={<Trash01 height={16} width={16} />}
-            onClick={() => removePattern(index)}
-          />
-        )}
+  const patternRows = patternFields.map((patternField, index) => (
+    <Box className="tw:flex tw:items-start tw:gap-2" key={patternField.id}>
+      <Box className="tw:flex tw:flex-1 tw:flex-col tw:gap-2">
+        <FormField control={form.control} name={`patterns.${index}.name`}>
+          {({ field }) => (
+            <Input
+              isRequired
+              data-testid={`recognizer-pattern-name-input-${index}`}
+              label={t('label.pattern-name')}
+              value={field.value}
+              onBlur={field.onBlur}
+              onChange={field.onChange}
+            />
+          )}
+        </FormField>
+        <FormField control={form.control} name={`patterns.${index}.regex`}>
+          {({ field }) => (
+            <Input
+              isRequired
+              data-testid={`recognizer-pattern-regex-input-${index}`}
+              label={t('label.pattern-regex')}
+              value={field.value}
+              onBlur={field.onBlur}
+              onChange={field.onChange}
+            />
+          )}
+        </FormField>
+        <FormField control={form.control} name={`patterns.${index}.score`}>
+          {({ field }) => (
+            <Input
+              data-testid={`recognizer-pattern-score-input-${index}`}
+              label={t('label.pattern-score')}
+              type="number"
+              value={String(field.value)}
+              onBlur={field.onBlur}
+              onChange={(value) => field.onChange(Number(value))}
+            />
+          )}
+        </FormField>
       </Box>
-    );
-  });
+      {patternFields.length > 1 && (
+        <ButtonUtility
+          color="tertiary"
+          data-testid={`remove-pattern-button-${index}`}
+          icon={<Trash01 height={16} width={16} />}
+          onClick={() => removePattern(index)}
+        />
+      )}
+    </Box>
+  ));
 
-  const { formDrawer } = useFormDrawerWithHook<RecognizerFormValues>({
+  const { formDrawer } = useFormDrawer<RecognizerFormValues>({
     title: recognizer
       ? t('label.edit-entity', { entity: t('label.recognizer') })
       : t('label.add-entity', { entity: t('label.recognizer') }),
-    hookForm: form,
     submitTestId: 'recognizer-form-submit-button',
     cancelTestId: 'recognizer-form-cancel-button',
     defaultOpen: true,
     onCancel,
     onClose: onCancel,
+    onSubmit: () => form.handleSubmit(handleFormSubmit)(),
     form: (
       <HookForm form={form} onSubmit={form.handleSubmit(handleFormSubmit)}>
-        {getField(nameField)}
-        {getField(displayNameField)}
-        {getField(targetField)}
-        {getField(confidenceThresholdField)}
-        {getField(recognizerTypeField)}
+        <FormField control={form.control} name="name">
+          {({ field }) => (
+            <Input
+              isRequired
+              data-testid="recognizer-name-input"
+              label={t('label.name')}
+              value={field.value}
+              onBlur={field.onBlur}
+              onChange={field.onChange}
+            />
+          )}
+        </FormField>
+        <FormField control={form.control} name="displayName">
+          {({ field }) => (
+            <Input
+              data-testid="recognizer-display-name-input"
+              label={t('label.display-name')}
+              value={field.value}
+              onBlur={field.onBlur}
+              onChange={field.onChange}
+            />
+          )}
+        </FormField>
+        <FormField control={form.control} name="target">
+          {({ field }) => (
+            <Select
+              isRequired
+              data-testid="recognizer-target-select"
+              items={targetOptions}
+              label={t('label.target')}
+              selectedKey={field.value || null}
+              onSelectionChange={(key) => field.onChange(key as Target)}>
+              {(item) => <SelectItem id={item.id}>{item.label}</SelectItem>}
+            </Select>
+          )}
+        </FormField>
+        <FormField control={form.control} name="confidenceThreshold">
+          {({ field }) => (
+            <Input
+              data-testid="recognizer-confidence-threshold-input"
+              label={t('label.confidence-threshold')}
+              type="number"
+              value={String(field.value)}
+              onBlur={field.onBlur}
+              onChange={(value) => field.onChange(Number(value))}
+            />
+          )}
+        </FormField>
+        <FormField control={form.control} name="recognizerType">
+          {({ field }) => (
+            <Select
+              isRequired
+              data-testid="recognizer-type-select"
+              items={recognizerTypeOptions}
+              label={t('label.recognizer-type')}
+              selectedKey={field.value}
+              onSelectionChange={(key) =>
+                field.onChange(key as RecognizerType)
+              }>
+              {(item) => <SelectItem id={item.id}>{item.label}</SelectItem>}
+            </Select>
+          )}
+        </FormField>
         {isExactTerms ? (
-          getField(exactTermsField)
+          <FormField control={form.control} name="exactTerms">
+            {({ field }) => (
+              <TextArea
+                isRequired
+                data-testid="recognizer-exact-terms-input"
+                hint={t('message.comma-separated-values-hint')}
+                label={t('label.exact-term-plural')}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={field.onChange}
+              />
+            )}
+          </FormField>
         ) : (
           <>
-            {getField(dotAllField)}
-            {getField(ignoreCaseField)}
-            {getField(multilineField)}
+            <FormField control={form.control} name="dotAll">
+              {({ field }) => (
+                <Checkbox
+                  data-testid="recognizer-dot-all-checkbox"
+                  isSelected={field.value}
+                  label={t('label.dot-all')}
+                  onChange={field.onChange}
+                />
+              )}
+            </FormField>
+            <FormField control={form.control} name="ignoreCase">
+              {({ field }) => (
+                <Checkbox
+                  data-testid="recognizer-ignore-case-checkbox"
+                  isSelected={field.value}
+                  label={t('label.ignore-case')}
+                  onChange={field.onChange}
+                />
+              )}
+            </FormField>
+            <FormField control={form.control} name="multiline">
+              {({ field }) => (
+                <Checkbox
+                  data-testid="recognizer-multiline-checkbox"
+                  isSelected={field.value}
+                  label={t('label.multiline')}
+                  onChange={field.onChange}
+                />
+              )}
+            </FormField>
             <Box className="tw:flex tw:flex-col tw:gap-3">
               {patternRows}
               <Button
@@ -355,7 +364,6 @@ const RecognizerFormDrawer = ({
         )}
       </HookForm>
     ),
-    onSubmit: (data) => handleFormSubmit(data),
   });
 
   return formDrawer;

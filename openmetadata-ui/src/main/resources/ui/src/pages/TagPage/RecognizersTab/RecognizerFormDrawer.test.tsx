@@ -13,12 +13,7 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
-import {
-  FormProvider,
-  useController,
-  useForm,
-  useFormContext,
-} from 'react-hook-form';
+import { Control, FieldValues, FormProvider, useForm } from 'react-hook-form';
 import {
   ClassificationLanguage,
   Recognizer,
@@ -26,166 +21,185 @@ import {
 } from '../../../generated/type/recognizer';
 import RecognizerFormDrawer from './RecognizerFormDrawer';
 
-jest.mock('@openmetadata/ui-core-components', () => ({
-  Box: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  Button: ({
-    children,
-    onClick,
-    ['data-testid']: testId,
-  }: {
-    children: ReactNode;
-    onClick?: () => void;
-    'data-testid'?: string;
-  }) => (
-    <button data-testid={testId} type="button" onClick={onClick}>
-      {children}
-    </button>
-  ),
-  ButtonUtility: ({
-    onClick,
-    ['data-testid']: testId,
-  }: {
-    onClick?: () => void;
-    'data-testid'?: string;
-  }) => <button data-testid={testId} type="button" onClick={onClick} />,
-  FieldTypes: {
-    CHECKBOX: 'CHECKBOX',
-    NUMBER: 'NUMBER',
-    SELECT: 'SELECT',
-    TEXT: 'TEXT',
-    TEXTAREA: 'TEXTAREA',
-  },
-  HelperTextType: { ALERT: 'alert', TOOLTIP: 'tooltip' },
-  getField: ({
+type SelectOption = { id: string; label: string };
+
+jest.mock('@openmetadata/ui-core-components', () => {
+  const { useController: mockUseController } = require('react-hook-form');
+
+  const MockFormField = ({
+    control,
     name,
-    label,
-    type,
-    props: fieldProps = {},
-  }: {
-    name: string;
-    label: ReactNode;
-    type: string;
-    props?: Record<string, unknown>;
-  }) => {
-    const testId = fieldProps['data-testid'] as string | undefined;
-
-    const MockField = () => {
-      const { control } = useFormContext();
-      const { field } = useController({ control, name });
-
-      if (type === 'SELECT') {
-        const options =
-          (fieldProps.options as { id: string; label: string }[]) ?? [];
-
-        return (
-          <div>
-            <label>{label}</label>
-            <select
-              data-testid={testId}
-              value={(field.value as { id: string } | null)?.id ?? ''}
-              onChange={(e) => {
-                const next = options.find((opt) => opt.id === e.target.value);
-                field.onChange(next ?? null);
-              }}>
-              <option value="" />
-              {options.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        );
-      }
-
-      if (type === 'CHECKBOX') {
-        return (
-          <div>
-            <label>{label}</label>
-            <input
-              checked={Boolean(field.value)}
-              data-testid={testId}
-              type="checkbox"
-              onChange={(e) => field.onChange(e.target.checked)}
-            />
-          </div>
-        );
-      }
-
-      if (type === 'NUMBER') {
-        return (
-          <div>
-            <label>{label}</label>
-            <input
-              data-testid={testId}
-              type="number"
-              value={(field.value as number) ?? ''}
-              onChange={(e) => field.onChange(Number(e.target.value))}
-            />
-          </div>
-        );
-      }
-
-      if (type === 'TEXTAREA') {
-        return (
-          <div>
-            <label>{label}</label>
-            <textarea
-              data-testid={testId}
-              value={(field.value as string) ?? ''}
-              onChange={(e) => field.onChange(e.target.value)}
-            />
-          </div>
-        );
-      }
-
-      return (
-        <div>
-          <label>{label}</label>
-          <input
-            data-testid={testId}
-            value={(field.value as string) ?? ''}
-            onChange={(e) => field.onChange(e.target.value)}
-          />
-        </div>
-      );
-    };
-
-    return <MockField />;
-  },
-  HookForm: ({
-    form,
     children,
-    onSubmit,
   }: {
-    form: ReturnType<typeof useForm>;
-    children: ReactNode;
-    onSubmit?: (e: React.FormEvent) => void;
+    control: Control<FieldValues>;
+    name: string;
+    children: (controller: ReturnType<typeof mockUseController>) => ReactNode;
+  }) => {
+    const controller = mockUseController({ control, name });
+
+    return <>{children(controller)}</>;
+  };
+
+  const MockSelect = ({
+    label,
+    items = [],
+    selectedKey,
+    onSelectionChange,
+    ['data-testid']: testId,
+  }: {
+    label?: string;
+    items?: SelectOption[];
+    selectedKey?: string | null;
+    onSelectionChange?: (key: string) => void;
+    'data-testid'?: string;
   }) => (
-    <FormProvider {...form}>
-      <form onSubmit={onSubmit}>
+    <div>
+      <label>{label}</label>
+      <select
+        data-testid={testId}
+        value={selectedKey ?? ''}
+        onChange={(e) => onSelectionChange?.(e.target.value)}>
+        <option value="" />
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+  return {
+    Box: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+    Button: ({
+      children,
+      onClick,
+      ['data-testid']: testId,
+    }: {
+      children: ReactNode;
+      onClick?: () => void;
+      'data-testid'?: string;
+    }) => (
+      <button data-testid={testId} type="button" onClick={onClick}>
         {children}
-        <button type="submit">submit-hidden</button>
-      </form>
-    </FormProvider>
-  ),
-}));
+      </button>
+    ),
+    ButtonUtility: ({
+      onClick,
+      ['data-testid']: testId,
+    }: {
+      onClick?: () => void;
+      'data-testid'?: string;
+    }) => <button data-testid={testId} type="button" onClick={onClick} />,
+    Checkbox: ({
+      label,
+      isSelected,
+      onChange,
+      ['data-testid']: testId,
+    }: {
+      label?: string;
+      isSelected?: boolean;
+      onChange?: (value: boolean) => void;
+      'data-testid'?: string;
+    }) => (
+      <div>
+        <label>{label}</label>
+        <input
+          checked={Boolean(isSelected)}
+          data-testid={testId}
+          type="checkbox"
+          onChange={(e) => onChange?.(e.target.checked)}
+        />
+      </div>
+    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    FormField: MockFormField as any,
+    HookForm: ({
+      form,
+      children,
+      onSubmit,
+    }: {
+      form: ReturnType<typeof useForm>;
+      children: ReactNode;
+      onSubmit?: (e: React.FormEvent) => void;
+    }) => (
+      <FormProvider {...form}>
+        <form onSubmit={onSubmit}>
+          {children}
+          <button type="submit">submit-hidden</button>
+        </form>
+      </FormProvider>
+    ),
+    Input: ({
+      label,
+      value,
+      type,
+      onChange,
+      onBlur,
+      ['data-testid']: testId,
+    }: {
+      label?: string;
+      value?: string;
+      type?: string;
+      onChange?: (value: string) => void;
+      onBlur?: () => void;
+      'data-testid'?: string;
+    }) => (
+      <div>
+        <label>{label}</label>
+        <input
+          data-testid={testId}
+          type={type ?? 'text'}
+          value={value ?? ''}
+          onBlur={onBlur}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
+      </div>
+    ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    Select: MockSelect as any,
+    SelectItem: ({ children }: { children: ReactNode }) => <>{children}</>,
+    TextArea: ({
+      label,
+      hint,
+      value,
+      onChange,
+      onBlur,
+      ['data-testid']: testId,
+    }: {
+      label?: string;
+      hint?: ReactNode;
+      value?: string;
+      onChange?: (value: string) => void;
+      onBlur?: () => void;
+      'data-testid'?: string;
+    }) => (
+      <div>
+        <label>{label}</label>
+        {hint}
+        <textarea
+          data-testid={testId}
+          value={value ?? ''}
+          onBlur={onBlur}
+          onChange={(e) => onChange?.(e.target.value)}
+        />
+      </div>
+    ),
+  };
+});
 
 jest.mock('../../../components/common/atoms/drawer/useFormDrawer', () => ({
-  useFormDrawerWithHook: ({
-    form,
-    onCancel,
-    title,
-  }: {
+  useFormDrawer: <T,>(config: {
+    title: ReactNode;
     form: ReactNode;
     onCancel?: () => void;
-    title: ReactNode;
+    onSubmit: (values: T) => void | Promise<void>;
   }) => ({
     formDrawer: (
       <div data-testid="recognizer-form-drawer">
-        <h1>{title}</h1>
-        {form}
-        <button data-testid="drawer-cancel-button" onClick={onCancel} />
+        <h1>{config.title}</h1>
+        {config.form}
+        <button data-testid="drawer-cancel-button" onClick={config.onCancel} />
       </div>
     ),
     openDrawer: jest.fn(),
