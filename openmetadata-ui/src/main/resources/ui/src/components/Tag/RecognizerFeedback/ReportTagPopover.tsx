@@ -20,8 +20,8 @@ import {
 } from '@openmetadata/ui-core-components';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getNameFromFQN } from '../../../utils/CommonUtils';
 import { formatDateTime } from '../../../utils/date-time/DateTimeUtils';
-import { getNameFromFQN } from '../../../utils/FqnUtils';
 import ReportTagFeedbackModal from './ReportTagFeedbackModal';
 import { ReportTagPopoverProps } from './ReportTagPopover.interface';
 

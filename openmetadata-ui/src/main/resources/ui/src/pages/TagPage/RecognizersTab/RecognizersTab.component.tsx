@@ -29,7 +29,7 @@ import { usePermissionProvider } from '../../../context/PermissionProvider/Permi
 import { ResourceEntity } from '../../../context/PermissionProvider/PermissionProvider.interface';
 import { Recognizer } from '../../../generated/type/recognizer';
 import { patchTag } from '../../../rest/tagAPI';
-import { getEntityName } from '../../../utils/EntityNameUtils';
+import { getEntityName } from '../../../utils/EntityUtils';
 import { showErrorToast } from '../../../utils/ToastUtils';
 import RecognizerExceptionsModal from './RecognizerExceptionsModal';
 import RecognizerFormDrawer from './RecognizerFormDrawer';

@@ -31,6 +31,10 @@ jest.mock('./ReportTagFeedbackModal', () => {
 
 jest.mock('../../../utils/date-time/DateTimeUtils', () => ({
   formatDateTime: jest.fn(() => 'Feb 18, 2026, 05:59 PM'),
+  getCurrentMillis: jest.fn(() => 0),
+  getEndOfDayInMillis: jest.fn(() => 0),
+  getEpochMillisForPastDays: jest.fn(() => 0),
+  getStartOfDayInMillis: jest.fn(() => 0),
 }));
 
 jest.mock('@openmetadata/ui-core-components', () => ({

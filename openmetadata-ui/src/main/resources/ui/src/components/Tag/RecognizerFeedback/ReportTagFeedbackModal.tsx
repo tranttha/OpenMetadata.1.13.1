@@ -34,11 +34,11 @@ import {
   UserReason,
 } from '../../../generated/type/recognizerFeedback';
 import { postRecognizerFeedback } from '../../../rest/tagAPI';
-import EntityLink from '../../../utils/EntityLink';
 import {
   getNameFromFQN,
   getTableFQNFromColumnFQN,
-} from '../../../utils/FqnUtils';
+} from '../../../utils/CommonUtils';
+import EntityLink from '../../../utils/EntityLink';
 import tagClassBase from '../../../utils/TagClassBase';
 import { showErrorToast, showSuccessToast } from '../../../utils/ToastUtils';
 import { ReportTagFeedbackModalProps } from './ReportTagFeedbackModal.interface';

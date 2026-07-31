@@ -25,7 +25,7 @@ import { useTranslation } from 'react-i18next';
 import DeleteModal from '../../../components/common/DeleteModal/DeleteModal';
 import { RecognizerException } from '../../../generated/type/recognizer';
 import { formatDateTime } from '../../../utils/date-time/DateTimeUtils';
-import { getEntityName } from '../../../utils/EntityNameUtils';
+import { getEntityName } from '../../../utils/EntityUtils';
 import { RecognizerExceptionsModalProps } from './RecognizerExceptionsModal.interface';
 
 const RecognizerExceptionsModal = ({

@@ -161,12 +161,9 @@ describe('FeedbackApprovalTask', () => {
   it('should display user reason when available', () => {
     const taskWithUserReason = {
       ...mockProps.task,
-      payload: {
-        ...(mockProps.task.payload ?? {}),
-        feedback: {
-          ...(mockProps.task.payload?.feedback ?? {}),
-          userReason: UserReason.NotSensitiveData,
-        },
+      feedback: {
+        ...mockProps.task.feedback,
+        userReason: UserReason.NotSensitiveData,
       },
     } as any;
 
@@ -191,12 +188,9 @@ describe('FeedbackApprovalTask', () => {
   it('should display suggested tag when available', () => {
     const taskWithSuggestedTag = {
       ...mockProps.task,
-      payload: {
-        ...(mockProps.task.payload ?? {}),
-        feedback: {
-          ...(mockProps.task.payload?.feedback ?? {}),
-          suggestedTag: 'PII.PhoneNumber',
-        },
+      feedback: {
+        ...mockProps.task.feedback,
+        suggestedTag: 'PII.PhoneNumber',
       },
     } as any;
 
