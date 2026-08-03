@@ -18,12 +18,14 @@ import {
   PopoverTrigger,
   Typography,
 } from '@openmetadata/ui-core-components';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getNameFromFQN } from '../../../utils/CommonUtils';
 import { formatDateTime } from '../../../utils/date-time/DateTimeUtils';
 import ReportTagFeedbackModal from './ReportTagFeedbackModal';
 import { ReportTagPopoverProps } from './ReportTagPopover.interface';
+
+const HOVER_CLOSE_DELAY_MS = 150;
 
 const ReportTagPopover = ({
   tagLabel,
@@ -35,6 +37,30 @@ const ReportTagPopover = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const triggerRef = useRef<HTMLSpanElement>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(
+    () => () => {
+      clearTimeout(closeTimeoutRef.current);
+    },
+    []
+  );
+
+  const cancelPendingClose = () => {
+    clearTimeout(closeTimeoutRef.current);
+  };
+
+  const handlePointerEnter = () => {
+    cancelPendingClose();
+    setIsPopoverOpen(true);
+  };
+
+  const handlePointerLeave = () => {
+    cancelPendingClose();
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsPopoverOpen(false);
+    }, HOVER_CLOSE_DELAY_MS);
+  };
 
   const recognizer = tagLabel.metadata?.recognizer;
   const patterns = recognizer?.patterns ?? [];
@@ -50,11 +76,13 @@ const ReportTagPopover = ({
   }, [patterns, recognizer?.score]);
 
   const handleReportClick = () => {
+    cancelPendingClose();
     setIsPopoverOpen(false);
     setIsModalOpen(true);
   };
 
   const handleCancelClick = () => {
+    cancelPendingClose();
     setIsPopoverOpen(false);
   };
 
@@ -62,15 +90,15 @@ const ReportTagPopover = ({
     <PopoverTrigger isOpen={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
       <span
         ref={triggerRef}
-        onMouseEnter={() => setIsPopoverOpen(true)}
-        onMouseLeave={() => setIsPopoverOpen(false)}>
+        onMouseEnter={handlePointerEnter}
+        onMouseLeave={handlePointerLeave}>
         {children}
       </span>
       <Popover
         containerClassName="tw:w-80 tw:p-4"
         triggerRef={triggerRef}
-        onMouseEnter={() => setIsPopoverOpen(true)}
-        onMouseLeave={() => setIsPopoverOpen(false)}>
+        onMouseEnter={handlePointerEnter}
+        onMouseLeave={handlePointerLeave}>
         <div className="tw:flex tw:flex-col tw:gap-2">
           <Typography as="p" data-testid="report-tag-name">
             {getNameFromFQN(tagLabel.tagFQN)}
