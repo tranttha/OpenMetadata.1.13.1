@@ -95,6 +95,7 @@ const ReportTagPopover = ({
         {children}
       </span>
       <Popover
+        isNonModal
         containerClassName="tw:w-80 tw:p-4"
         triggerRef={triggerRef}
         onMouseEnter={handlePointerEnter}
