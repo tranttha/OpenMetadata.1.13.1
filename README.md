@@ -76,6 +76,30 @@ Take a look and play with sample data at [http://sandbox.open-metadata.org](http
 ## Install and Run OpenMetadata
 Get up and running in a few minutes. See the OpenMetadata documentation for [installation instructions](https://docs.open-metadata.org/quick-start/local-docker-deployment).
 
+## Rebuilding Docker Images Locally
+
+To rebuild the three OpenMetadata images from source instead of pulling published releases, run the following from the repo root.
+
+### openmetadata-server
+```bash
+mvn -DskipTests clean package
+docker build -f docker/development/Dockerfile -t openmetadata-server:local .
+```
+The Maven build produces `openmetadata-dist/target/openmetadata-*.tar.gz`, which the Dockerfile unpacks into the final image.
+
+### openmetadata-ingestion
+```bash
+docker build -f ingestion/Dockerfile -t openmetadata-ingestion:local .
+```
+Add `--build-arg INGESTION_DEPENDENCY=slim` to build the lighter-weight ingestion-slim variant.
+
+### omjob-operator
+```bash
+cd openmetadata-k8s-operator
+make docker
+```
+This runs `mvn package -pl openmetadata-k8s-operator` to produce the fat JAR, then builds and tags the image (`docker.getcollate.io/openmetadata/omjob-operator:<VERSION>`). Override the version with `make docker VERSION=<tag>`; run `make help` for the full list of targets (`compile`, `test`, `package`, `push`, `clean`, `run-local`).
+
 ## Documentation and Support
 
 We're here to help and make OpenMetadata even better! Check out [OpenMetadata documentation](https://docs.open-metadata.org/) for a complete description of OpenMetadata's features. Join our [Slack Community](https://slack.open-metadata.org/) to get in touch with us if you want to chat, need help, or discuss new feature requirements.
