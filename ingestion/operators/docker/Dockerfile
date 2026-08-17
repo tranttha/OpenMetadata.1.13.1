@@ -196,8 +196,23 @@ RUN pip install psycopg2 mysqlclient==2.1.1
 # though mysqlclient's compiled extension links against them at runtime.
 # apt-mark manual pins them before autoremove runs so the cleanup doesn't take
 # them out too -- verified end-to-end by the `import MySQLdb` gate check.
+#
+# The util-linux upgrade rides along in the same root layer. trixie's base ships
+# 2.41-5, which carries CVE-2025-14104, CVE-2026-13595 and CVE-2026-27456;
+# trixie-security has 2.41.5-0+deb13u1. One source package produces several
+# binaries and scanners report them separately (util-linux, bsdutils and login
+# each show up as their own finding), so every binary that could be installed is
+# named -- --only-upgrade skips the ones that are not.
+# This deliberately does NOT go in the top-of-file apt RUN: that layer's cache
+# key never changes, so an upgrade placed there freezes its Debian index with it
+# and the image keeps shipping whatever was current when the layer was first
+# built. Below the COPY and pip layers, the index is re-read on every build.
 USER root
-RUN apt-get -qq purge -y libmariadb-dev libmariadb-dev-compat libunbound8 \
+RUN apt-get -qq update \
+  && apt-get -qq install -y --only-upgrade \
+       util-linux util-linux-extra bsdutils bsdextrautils login mount fdisk \
+       libblkid1 libfdisk1 libmount1 libsmartcols1 libuuid1 uuid-runtime \
+  && apt-get -qq purge -y libmariadb-dev libmariadb-dev-compat libunbound8 \
   && apt-mark manual libmariadb3 mariadb-common \
   && apt-get -qq autoremove -y --purge \
   && rm -rf /var/lib/apt/lists/*
@@ -217,3 +232,10 @@ RUN pip install --upgrade "setuptools>=83"
 # final pip install, or a later install restores the fixture.
 COPY --chown=openmetadata:openmetadata ingestion/scripts/strip_spacy_test_fixture.sh /tmp/strip_spacy_test_fixture.sh
 RUN bash /tmp/strip_spacy_test_fixture.sh && rm -f /tmp/strip_spacy_test_fixture.sh
+
+# Drop the teradatasql driver libraries this platform cannot load. The wheel ships
+# all ten platform builds (337 MB of Go shared objects, nine of them dead weight);
+# see ingestion/scripts/strip_teradatasql_arch_libs.sh. Same placement rule as the
+# spaCy strip -- after the final pip install, or a later install restores them.
+COPY --chown=openmetadata:openmetadata ingestion/scripts/strip_teradatasql_arch_libs.sh /tmp/strip_teradatasql_arch_libs.sh
+RUN bash /tmp/strip_teradatasql_arch_libs.sh && rm -f /tmp/strip_teradatasql_arch_libs.sh
