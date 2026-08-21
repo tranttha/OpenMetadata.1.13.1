@@ -15,6 +15,8 @@ import { createTheme, Theme, ThemeProvider } from '@mui/material/styles';
 import { fireEvent, getByTestId, render } from '@testing-library/react';
 import { TAG_CONSTANT, TAG_START_WITH } from '../../../constants/Tag.constants';
 import { LabelType, State, TagSource } from '../../../generated/type/tagLabel';
+import EntityLink from '../../../utils/EntityLink';
+import tagClassBase from '../../../utils/TagClassBase';
 import TagsV1 from './TagsV1.component';
 
 const mockLinkButton = jest.fn();
@@ -46,6 +48,16 @@ jest.mock('../../../utils/TagsUtils', () => ({
 
 jest.mock('../../../utils/ColorUtils', () => ({
   reduceColorOpacity: jest.fn().mockReturnValue('#00000'),
+}));
+
+jest.mock('../../../utils/TagClassBase', () => ({
+  __esModule: true,
+  default: { getRecognizerFeedbackPopup: jest.fn() },
+}));
+
+jest.mock('../../../utils/EntityLink', () => ({
+  __esModule: true,
+  default: { getTableColumnNameFromColumnFqn: jest.fn() },
 }));
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -138,5 +150,58 @@ describe('Test tags Component', () => {
     const tag = getByTestId(container, 'tags');
 
     expect(tag).toHaveClass('small');
+  });
+
+  it('should call tagClassBase.getRecognizerFeedbackPopup for a Generated column-level tag and render its result', () => {
+    (EntityLink.getTableColumnNameFromColumnFqn as jest.Mock).mockReturnValue(
+      'column1'
+    );
+    (tagClassBase.getRecognizerFeedbackPopup as jest.Mock).mockReturnValue(
+      <div data-testid="mock-recognizer-popup">Popup</div>
+    );
+
+    const { getByTestId: getByTestIdFromResult } = render(
+      <TagsV1
+        entityFqn="service.db.schema.table.column1"
+        startWith={TAG_START_WITH.SOURCE_ICON}
+        tag={{
+          labelType: LabelType.Generated,
+          source: TagSource.Classification,
+          state: State.Confirmed,
+          tagFQN: 'PII.Sensitive',
+        }}
+      />,
+      { wrapper: Wrapper }
+    );
+
+    expect(getByTestIdFromResult('mock-recognizer-popup')).toBeInTheDocument();
+    expect(tagClassBase.getRecognizerFeedbackPopup).toHaveBeenCalledWith(
+      expect.objectContaining({ tagFQN: 'PII.Sensitive' }),
+      'service.db.schema.table.column1',
+      expect.anything()
+    );
+  });
+
+  it('should not call tagClassBase.getRecognizerFeedbackPopup for a Generated table-level tag', () => {
+    (EntityLink.getTableColumnNameFromColumnFqn as jest.Mock).mockReturnValue(
+      ''
+    );
+    (tagClassBase.getRecognizerFeedbackPopup as jest.Mock).mockClear();
+
+    render(
+      <TagsV1
+        entityFqn="service.db.schema.table"
+        startWith={TAG_START_WITH.SOURCE_ICON}
+        tag={{
+          labelType: LabelType.Generated,
+          source: TagSource.Classification,
+          state: State.Confirmed,
+          tagFQN: 'PII.Sensitive',
+        }}
+      />,
+      { wrapper: Wrapper }
+    );
+
+    expect(tagClassBase.getRecognizerFeedbackPopup).not.toHaveBeenCalled();
   });
 });

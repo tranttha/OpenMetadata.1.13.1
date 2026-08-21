@@ -3,7 +3,7 @@ import type {
   PointerEventHandler,
   RefAttributes,
 } from 'react';
-import { useCallback, useContext, useRef, useState } from 'react';
+import { forwardRef, useCallback, useContext, useRef, useState } from 'react';
 import { SearchLg as SearchIcon } from '@untitledui/icons';
 import type {
   ComboBoxProps as AriaComboBoxProps,
@@ -51,89 +51,87 @@ interface ComboBoxValueProps
   onPointerEnter?: PointerEventHandler;
 }
 
-const ComboBoxValue = ({
-  size,
-  shortcut,
-  placeholder,
-  shortcutClassName,
-  ...otherProps
-}: ComboBoxValueProps) => {
-  const state = useContext(ComboBoxStateContext);
+const ComboBoxValue = forwardRef<HTMLDivElement, ComboBoxValueProps>(
+  ({ size, shortcut, placeholder, shortcutClassName, ...otherProps }, ref) => {
+    const state = useContext(ComboBoxStateContext);
 
-  const value = state?.selectedItem?.value || null;
-  const inputValue = state?.inputValue || null;
+    const value = state?.selectedItem?.value || null;
+    const inputValue = state?.inputValue || null;
 
-  const first = inputValue?.split(value?.supportingText)?.[0] || '';
-  const last = inputValue?.split(first)[1];
+    const first = inputValue?.split(value?.supportingText)?.[0] || '';
+    const last = inputValue?.split(first)[1];
 
-  return (
-    <AriaGroup
-      {...otherProps}
-      className={({ isFocusWithin, isDisabled }) =>
-        cx(
-          'tw:relative tw:flex tw:w-full tw:items-center tw:gap-2 tw:rounded-lg tw:bg-primary tw:shadow-xs tw:ring-1 tw:ring-primary tw:outline-hidden tw:transition-shadow tw:duration-100 tw:ease-linear tw:ring-inset',
-          isDisabled && 'tw:cursor-not-allowed tw:bg-disabled_subtle',
-          isFocusWithin && 'tw:ring-2 tw:ring-brand',
-          sizes[size].root
-        )
-      }>
-      {({ isDisabled }) => (
-        <>
-          <SearchIcon className="tw:pointer-events-none tw:size-5 tw:shrink-0 tw:text-fg-quaternary" />
+    return (
+      <AriaGroup
+        ref={ref}
+        {...otherProps}
+        className={({ isFocusWithin, isDisabled }) =>
+          cx(
+            'tw:relative tw:flex tw:w-full tw:items-center tw:gap-2 tw:rounded-lg tw:bg-primary tw:shadow-xs tw:ring-1 tw:ring-primary tw:outline-hidden tw:transition-shadow tw:duration-100 tw:ease-linear tw:ring-inset',
+            isDisabled && 'tw:cursor-not-allowed tw:bg-disabled_subtle',
+            isFocusWithin && 'tw:ring-2 tw:ring-brand',
+            sizes[size].root
+          )
+        }>
+        {({ isDisabled }) => (
+          <>
+            <SearchIcon className="tw:pointer-events-none tw:size-5 tw:shrink-0 tw:text-fg-quaternary" />
 
-          <div className="tw:relative tw:flex tw:w-full tw:items-center tw:gap-2">
-            {inputValue && (
-              <span
-                aria-hidden="true"
-                className="tw:absolute tw:top-1/2 tw:z-0 tw:inline-flex tw:w-full tw:-translate-y-1/2 tw:gap-2 tw:truncate">
-                <p
-                  className={cx(
-                    'tw:text-md tw:font-medium tw:text-primary',
-                    isDisabled && 'tw:text-disabled'
-                  )}>
-                  {first}
-                </p>
-                {last && (
+            <div className="tw:relative tw:flex tw:w-full tw:items-center tw:gap-2">
+              {inputValue && (
+                <span
+                  aria-hidden="true"
+                  className="tw:absolute tw:top-1/2 tw:z-0 tw:inline-flex tw:w-full tw:-translate-y-1/2 tw:gap-2 tw:truncate">
                   <p
                     className={cx(
-                      'tw:-ml-0.75 tw:text-md tw:text-tertiary',
+                      'tw:text-md tw:font-medium tw:text-primary',
                       isDisabled && 'tw:text-disabled'
                     )}>
-                    {last}
+                    {first}
                   </p>
-                )}
-              </span>
-            )}
+                  {last && (
+                    <p
+                      className={cx(
+                        'tw:-ml-0.75 tw:text-md tw:text-tertiary',
+                        isDisabled && 'tw:text-disabled'
+                      )}>
+                      {last}
+                    </p>
+                  )}
+                </span>
+              )}
 
-            <AriaInput
-              className="tw:z-10 tw:w-full tw:appearance-none tw:bg-transparent tw:text-md tw:text-transparent tw:caret-alpha-black/90 tw:placeholder:text-placeholder tw:focus:outline-hidden tw:disabled:cursor-not-allowed tw:disabled:text-disabled tw:disabled:placeholder:text-disabled"
-              placeholder={placeholder}
-            />
-          </div>
-
-          {shortcut && (
-            <div
-              className={cx(
-                'tw:absolute tw:inset-y-0.5 tw:right-0.5 tw:z-10 tw:flex tw:items-center tw:rounded-r-[inherit] tw:bg-linear-to-r tw:from-transparent tw:to-bg-primary tw:to-40% tw:pl-8',
-                isDisabled && 'tw:to-bg-disabled_subtle',
-                sizes[size].shortcut,
-                shortcutClassName
-              )}>
-              <span
-                aria-hidden="true"
-                className={cx(
-                  'tw:pointer-events-none tw:rounded tw:px-1 tw:py-px tw:text-xs tw:font-medium tw:text-quaternary tw:ring-1 tw:ring-secondary tw:select-none tw:ring-inset',
-                  isDisabled && 'tw:bg-transparent tw:text-disabled'
-                )}>
-                ⌘K
-              </span>
+              <AriaInput
+                className="tw:z-10 tw:w-full tw:appearance-none tw:bg-transparent tw:text-md tw:text-transparent tw:caret-alpha-black/90 tw:placeholder:text-placeholder tw:focus:outline-hidden tw:disabled:cursor-not-allowed tw:disabled:text-disabled tw:disabled:placeholder:text-disabled"
+                placeholder={placeholder}
+              />
             </div>
-          )}
-        </>
-      )}
-    </AriaGroup>
-  );
-};
+
+            {shortcut && (
+              <div
+                className={cx(
+                  'tw:absolute tw:inset-y-0.5 tw:right-0.5 tw:z-10 tw:flex tw:items-center tw:rounded-r-[inherit] tw:bg-linear-to-r tw:from-transparent tw:to-bg-primary tw:to-40% tw:pl-8',
+                  isDisabled && 'tw:to-bg-disabled_subtle',
+                  sizes[size].shortcut,
+                  shortcutClassName
+                )}>
+                <span
+                  aria-hidden="true"
+                  className={cx(
+                    'tw:pointer-events-none tw:rounded tw:px-1 tw:py-px tw:text-xs tw:font-medium tw:text-quaternary tw:ring-1 tw:ring-secondary tw:select-none tw:ring-inset',
+                    isDisabled && 'tw:bg-transparent tw:text-disabled'
+                  )}>
+                  ⌘K
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </AriaGroup>
+    );
+  }
+);
+ComboBoxValue.displayName = 'ComboBoxValue';
 
 export const ComboBox = ({
   placeholder = 'Search',
@@ -165,7 +163,7 @@ export const ComboBox = ({
   });
 
   return (
-    <SelectContext.Provider value={{ size }}>
+    <SelectContext.Provider value={{ size, fontSize: 'md' }}>
       <AriaComboBox menuTrigger="focus" {...otherProps}>
         {(state) => (
           <div className="tw:flex tw:flex-col tw:gap-1.5">

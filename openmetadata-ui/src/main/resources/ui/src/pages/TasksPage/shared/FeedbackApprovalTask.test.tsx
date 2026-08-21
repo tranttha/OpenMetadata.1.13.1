@@ -13,7 +13,10 @@
 import { render, screen } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { FeedbackType } from '../../../generated/entity/feed/thread';
+import {
+  FeedbackType,
+  UserReason,
+} from '../../../generated/entity/feed/thread';
 import { MOCK_TASK_RECOGNIZER_FEEDBACK } from '../../../mocks/Task.mock';
 import FeedbackApprovalTask from './FeedbackApprovalTask';
 
@@ -153,6 +156,58 @@ describe('FeedbackApprovalTask', () => {
     });
 
     expect(screen.getByText('label.entity-link')).toBeInTheDocument();
+  });
+
+  it('should display user reason when available', () => {
+    const taskWithUserReason = {
+      ...mockProps.task,
+      feedback: {
+        ...mockProps.task.feedback,
+        userReason: UserReason.NotSensitiveData,
+      },
+    } as any;
+
+    render(<FeedbackApprovalTask task={taskWithUserReason} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText('label.user-reason')).toBeInTheDocument();
+    expect(
+      screen.getByText('label.user-reason-not-sensitive-data')
+    ).toBeInTheDocument();
+  });
+
+  it('should not display user reason when not available', () => {
+    render(<FeedbackApprovalTask {...mockProps} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.queryByText('label.user-reason')).not.toBeInTheDocument();
+  });
+
+  it('should display suggested tag when available', () => {
+    const taskWithSuggestedTag = {
+      ...mockProps.task,
+      feedback: {
+        ...mockProps.task.feedback,
+        suggestedTag: 'PII.PhoneNumber',
+      },
+    } as any;
+
+    render(<FeedbackApprovalTask task={taskWithSuggestedTag} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText('label.suggested-tag')).toBeInTheDocument();
+    expect(screen.getByText('PhoneNumber')).toBeInTheDocument();
+  });
+
+  it('should not display suggested tag when not available', () => {
+    render(<FeedbackApprovalTask {...mockProps} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.queryByText('label.suggested-tag')).not.toBeInTheDocument();
   });
 
   it('should not render when feedback is undefined', () => {

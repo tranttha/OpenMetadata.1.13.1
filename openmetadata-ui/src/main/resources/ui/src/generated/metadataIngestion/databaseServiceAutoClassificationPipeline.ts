@@ -26,6 +26,13 @@ export interface DatabaseServiceAutoClassificationPipeline {
      */
     classificationLanguage?: ClassificationLanguage;
     /**
+     * Names of the Classifications (e.g. 'PII') whose tags should be considered for
+     * auto-classification. Only tags belonging to one of these Classifications, with
+     * autoClassificationEnabled set and recognizers configured, will be evaluated. Defaults to
+     * ['PII'] to preserve existing behavior.
+     */
+    classificationNames?: string[];
+    /**
      * Set the Confidence value for which you want the column to be tagged as PII. Confidence
      * value ranges from 0 to 100. A higher number will yield less false positives but more
      * false negatives. A lower number will yield more false positives but less false negatives.

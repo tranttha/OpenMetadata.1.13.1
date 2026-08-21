@@ -21,7 +21,9 @@ import {
   CpuChip02,
   Database01,
   Flag04,
+  HelpCircle,
   MessageTextSquare01,
+  Tag01,
   UsersRight,
 } from '@untitledui/icons';
 import { FC, useMemo } from 'react';
@@ -34,7 +36,9 @@ import {
   FeedbackType,
   RecognizerFeedback,
   TaskDetails,
+  UserReason,
 } from '../../../generated/entity/feed/thread';
+import { getNameFromFQN } from '../../../utils/CommonUtils';
 import { formatDateTime } from '../../../utils/date-time/DateTimeUtils';
 import EntityLink from '../../../utils/EntityLink';
 import { getEntityName } from '../../../utils/EntityNameUtils';
@@ -43,6 +47,16 @@ import { getEntityDetailsPath } from '../../../utils/RouterUtils';
 interface FeedbackApprovalTaskProps {
   task: TaskDetails;
 }
+
+const USER_REASON_LABEL_KEYS: Record<UserReason, string> = {
+  [UserReason.NotSensitiveData]: 'label.user-reason-not-sensitive-data',
+  [UserReason.WrongDataType]: 'label.user-reason-wrong-data-type',
+  [UserReason.InternalIdentifier]: 'label.user-reason-internal-identifier',
+  [UserReason.PublicInformation]: 'label.user-reason-public-information',
+  [UserReason.TestData]: 'label.user-reason-test-data',
+  [UserReason.EncryptedData]: 'label.user-reason-encrypted-data',
+  [UserReason.Other]: 'label.user-reason-other',
+};
 
 const FeedbackApprovalTask: FC<FeedbackApprovalTaskProps> = ({ task }) => {
   const { t } = useTranslation();
@@ -149,6 +163,24 @@ const FeedbackApprovalTask: FC<FeedbackApprovalTaskProps> = ({ task }) => {
         </>
       )}
 
+      {feedback.userReason && (
+        <>
+          <Grid.Item span={8}>
+            <Typography
+              as="p"
+              className="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:min-w-0">
+              <HelpCircle className="tw:shrink-0 tw:text-gray-500" size={16} />
+              {t('label.user-reason')}
+            </Typography>
+          </Grid.Item>
+          <Grid.Item span={16}>
+            <Typography as="p" className="tw:text-secondary">
+              {t(USER_REASON_LABEL_KEYS[feedback.userReason])}
+            </Typography>
+          </Grid.Item>
+        </>
+      )}
+
       {feedback.createdBy && (
         <>
           <Grid.Item span={8}>
@@ -206,6 +238,24 @@ const FeedbackApprovalTask: FC<FeedbackApprovalTaskProps> = ({ task }) => {
                 {entityLinkData.entityName}
               </Typography>
             </Link>
+          </Grid.Item>
+        </>
+      )}
+
+      {feedback.suggestedTag && (
+        <>
+          <Grid.Item span={8}>
+            <Typography
+              as="p"
+              className="tw:flex tw:items-center tw:gap-2 tw:text-secondary tw:min-w-0">
+              <Tag01 className="tw:shrink-0 tw:text-gray-500" size={16} />
+              {t('label.suggested-tag')}
+            </Typography>
+          </Grid.Item>
+          <Grid.Item span={16}>
+            <Typography as="p" className="tw:text-secondary">
+              {getNameFromFQN(feedback.suggestedTag)}
+            </Typography>
           </Grid.Item>
         </>
       )}

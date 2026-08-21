@@ -66,8 +66,12 @@ class AutoClassificationWorkflow(ProfilerWorkflow):
             self.steps = (sampler_processor, sink)
 
     def _get_pii_processor(self) -> Processor:
+        source_config = self.config.source.sourceConfig.config
+        # MessagingServiceAutoClassificationPipeline has no classificationNames field
+        classification_names = getattr(source_config, "classificationNames", None) or [PII]
+
         return create_pii_processor(
-            self.metadata, self.config, classification_filter=[PII]
+            self.metadata, self.config, classification_filter=classification_names
         )
 
     def _get_sampler_processor(self) -> Processor:
