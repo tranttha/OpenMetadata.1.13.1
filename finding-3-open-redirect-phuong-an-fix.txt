@@ -1,0 +1,130 @@
+SO SANH 2 PHUONG AN FIX FINDING #3 - OPEN REDIRECT TRONG OIDC LOGIN
+====================================================================
+File lien quan: openmetadata-service/src/main/java/org/openmetadata/service/security/AuthenticationCodeFlowHandler.java
+Ham lien quan: handleLogin() (dong 364-442), checkAndStoreRedirectUriInSession() (dong 457-464),
+               sendRedirectWithToken() (dong 852-885)
+
+
+BOI CANH - MUC DO NGHIEM TRONG THUC TE
+----------------------------------------
+Da trace sau hon bao cao goc: day khong chi la "open redirect dan den phishing" ma la
+EXFILTRATE TRUC TIEP id_token that. Tai dong 876-884, server tu xay dung URL:
+
+    String url = String.format(
+        "%s?id_token=%s&email=%s&name=%s",
+        redirectUri,  // <-- gia tri nay khong duoc validate, lay tu request cua attacker
+        URLEncoder.encode(credentials.getIdToken().getParsedString(), ...),
+        ...
+    );
+    response.sendRedirect(url);
+
+=> Server tu redirect (302) kem theo id_token that cua nan nhan sang URL do attacker
+   chi dinh. Day la exfiltration truc tiep, khong phai chi la "co the bi phishing".
+
+Muc dich cua fix: dam bao redirectUri chi co the tro ve dung origin/callback ma he thong
+da cau hinh truoc, khong cho phep attacker tu do chi dinh bat ky domain nao.
+
+DA KIEM TRA: hien tai KHONG CO co che allowlist/trusted-redirect-uri nao san co trong
+codebase (grep toan bo openmetadata-service/ va conf/ khong ra ket qua). Nghia la ca 2
+phuong an duoi day deu la code MOI, khong phai bat cong tac co san.
+
+
+PHUONG AN 1: SAME-ORIGIN CHECK (so sanh voi serverUrl da cau hinh)
+====================================================================
+
+Cach lam:
+  - Class AuthenticationCodeFlowHandler da co san bien `serverUrl` (dung o dong 382 de
+    tinh expectedMcpCallback = serverUrl + "/mcp/callback").
+  - Them buoc kiem tra: parse origin (scheme + host + port) cua serverUrl va cua
+    requestedRedirectUri, so sanh bang nhau. Neu requestedRedirectUri la relative path
+    (khong co scheme/host) thi mac dinh an toan (se duoc browser resolve theo origin
+    hien tai). Neu la absolute URL nhung khac origin voi serverUrl -> tu choi
+    (throw TechnicalException), fallback ve ssoCallbackUrl.
+
+Uu diem:
+  1. KHONG can them config moi - dung ngay bien serverUrl da co, khong dong cham den
+     conf/openmetadata.yaml, khong can migration hay tai lieu huong dan van hanh moi.
+  2. It rui ro implement sai - chi la 1 phep so sanh string/URI.getHost(), de review,
+     de unit test (chi can vai testcase: same-host OK, khac-host FAIL, relative-path OK).
+  3. Nhat quan voi logic da co san trong chinh file nay (dong 383, so sanh
+     expectedMcpCallback) - cung 1 tu duy "so voi 1 gia tri server tu biet", khong phai
+     pattern moi doi voi codebase.
+  4. Dong kin hoan toan ke ho hien tai NEU gia dinh dung: OpenMetadata sau khi login
+     chi bao gio redirect ve chinh frontend cua no (cung origin voi server).
+
+Nhuoc diem / Rui ro:
+  1. GIA DINH CHUA DUOC XAC NHAN: neu co flow nao hop le can redirect ve 1 origin KHAC
+     serverUrl sau khi login (vi du: 1 SPA rieng deploy o domain khac, tich hop iframe,
+     hoac 1 flow embedded/plugin), thi same-origin check se lam GAY flow do. Da search
+     code hien tai (nhanh 1.13.3) khong thay bang chung ro rang co flow nhu vay, nhung
+     KHONG THE loai tru 100% tu code - can hoi truc tiep team frontend/deployment.
+  2. serverUrl co the khac voi domain nguoi dung thuc su truy cap (vi du sau reverse
+     proxy/load balancer/multiple domain alias) - neu serverUrl config sai lech thuc te,
+     co the vo tinh chan ca cac request hop le. Can kiem tra ky gia tri serverUrl duoc
+     set the nao trong moi truong UAT/Prod truoc khi deploy fix nay.
+  3. Khong linh hoat cho tuong lai neu OpenMetadata can ho tro nhieu frontend origin
+     hop phap cung luc (multi-tenant voi domain rieng cho tung tenant, chang han).
+
+
+PHUONG AN 2: ALLOWLIST CAU HINH (danh sach cac origin/callback duoc tin tuong)
+====================================================================
+
+Cach lam:
+  - Them 1 config moi (vi du: AUTHENTICATION_TRUSTED_REDIRECT_ORIGINS trong
+    conf/openmetadata.yaml, dang list<String>), doc vao AuthenticationCodeFlowHandler
+    luc khoi tao (tuong tu cach client/serverUrl duoc wire hien tai).
+  - Validate requestedRedirectUri: parse origin, kiem tra co nam trong danh sach
+    allowlist hay khong (hoac la relative path). Neu khong khop -> tu choi.
+
+Uu diem:
+  1. Linh hoat - ho tro duoc nhieu origin hop le cung luc (nhieu frontend, nhieu domain,
+     nhieu moi truong) ma khong can sua code moi lan them 1 origin moi, chi can sua
+     config/deploy lai.
+  2. Rong hon cho tuong lai neu san pham mo rong (them frontend rieng, them tich hop
+     browser-extension, mobile app deep-link, v.v. - moi cai co the can 1 redirect
+     origin khac nhau).
+  3. Kiem soat ro rang, tuong minh: nguoi van hanh THAY RO trong config dau la nhung
+     origin duoc phep, khong phai suy luan ngam tu serverUrl.
+
+Nhuoc diem / Rui ro:
+  1. LA THIET KE MOI HOAN TOAN, khong phai "vai dong code" nhu bao cao mo ta - can:
+       - Them field config moi (schema/doc conf/openmetadata.yaml)
+       - Wire qua constructor/dependency injection cua AuthenticationCodeFlowHandler
+       - Viet doc huong dan van hanh (docs/) de admin biet cach cau hinh dung
+       - Xu ly gia tri mac dinh hop ly khi admin KHONG set config nay (fail-safe: nen
+         mac dinh chi allow serverUrl neu khong co config, tranh truong hop nang cap
+         len ma quen cau hinh -> vo tinh mo toang lai lo hong)
+  2. Rui ro cau hinh sai cao hon: admin phai TU dien dung danh sach origin, neu dien
+     thieu se lam gay flow login hop le (UX xau, nhieu ticket support), neu dien du
+     hoac dien sai (vi du wildcard "*" cho tien) thi tuong duong KHONG FIX gi ca.
+  3. Ton nhieu thoi gian implement + review hon dang ke so voi phuong an 1 - nhieu diem
+     cham (config parsing, validation logic, default value, migration cho user dang
+     upgrade tu ban cu khong co config nay).
+  4. Can quyet dinh THEM: neu admin khong cau hinh gi, mac dinh la "chi serverUrl"
+     (an toan nhung co the gay bat ngo neu ho dang dung multi-origin ma khong biet
+     phai cau hinh) hay "cho phep tat ca" (khong an toan, tuong duong bug hien tai)?
+     Day la 1 quyet dinh UX/security tradeoff can thao luan, khong the tu quyet khi
+     code.
+
+
+KHUYEN NGHI
+====================================================================
+1. Neu xac nhan duoc OpenMetadata (trong pham vi trien khai hien tai cua SSI) CHI
+   redirect ve chinh no sau khi login (khong co SPA/domain khac nao can duoc redirect
+   toi) -> chon PHUONG AN 1 (same-origin check). Nhanh, it rui ro, fix duoc ngay,
+   dong kin hoan toan lo hong voi effort thap nhat.
+
+2. Neu can ho tro nhieu origin (vi du co ke hoach them frontend rieng, tich hop
+   browser-extension, hoac multi-tenant domain) -> chon PHUONG AN 2 (allowlist), nhung
+   phai coi day la 1 hang muc thiet ke rieng (can thoi gian review UX config, default
+   value, tai lieu van hanh), KHONG phai 1 patch nhanh nhu 2 finding con lai.
+
+3. Truoc khi implement ca 2 phuong an: BAT BUOC hoi team frontend/deployment cau hoi
+   "sau khi user login OIDC thanh cong, browser co bao gio can duoc redirect ve 1
+   origin KHAC voi domain OpenMetadata server dang chay hay khong?" - cau tra loi
+   nay quyet dinh chon phuong an nao, khong the suy doan tu code.
+
+4. Du chon phuong an nao, PHAI viet test rieng cho scenario PoC trong bao cao goc:
+   redirect_uri tro toi 1 domain hoan toan khac (vi du https://attacker.example.com)
+   phai bi tu choi truoc khi vao checkAndStoreRedirectUriInSession(), khong duoc de
+   loi lot qua den sendRedirectWithToken().

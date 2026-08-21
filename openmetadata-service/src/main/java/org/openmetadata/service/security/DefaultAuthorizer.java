@@ -108,6 +108,10 @@ public class DefaultAuthorizer implements Authorizer {
       SecurityContext securityContext, List<AuthRequest> requests, AuthorizationLogic logic) {
     SubjectContext subjectContext = getSubjectContext(securityContext);
 
+    if (subjectContext.impersonatedBy() != null) {
+      checkImpersonationAuthorization(subjectContext);
+    }
+
     if (subjectContext.isAdmin()) {
       return;
     }

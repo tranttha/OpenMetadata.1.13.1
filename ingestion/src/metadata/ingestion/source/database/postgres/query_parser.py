@@ -31,6 +31,7 @@ from metadata.ingestion.source.connections import get_connection
 from metadata.ingestion.source.database.postgres.queries import POSTGRES_GET_DATABASE
 from metadata.ingestion.source.database.postgres.utils import (
     get_postgres_time_column_name,
+    get_safe_query_statement_source,
 )
 from metadata.ingestion.source.database.query_parser_source import QueryParserSource
 from metadata.utils.helpers import get_start_and_end
@@ -74,8 +75,10 @@ class PostgresQueryParserSource(QueryParserSource, ABC):
             result_limit=self.config.sourceConfig.config.resultLimit,
             filters=self.get_filters(),
             time_column_name=get_postgres_time_column_name(engine=self.engine),
-            query_statement_source=self.service_connection.queryStatementSource
-            or "pg_stat_statements",
+            query_statement_source=get_safe_query_statement_source(
+                engine=self.engine,
+                query_statement_source=self.service_connection.queryStatementSource,
+            ),
         )
 
     # pylint: disable=no-member

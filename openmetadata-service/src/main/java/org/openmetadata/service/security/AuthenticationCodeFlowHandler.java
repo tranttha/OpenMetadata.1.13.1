@@ -393,6 +393,12 @@ public class AuthenticationCodeFlowHandler implements AuthServeletHandler {
             finalRedirectUri);
       } else {
         ssoCallbackUrl = client.getCallbackUrl();
+        if (requestedRedirectUri != null && !isRedirectUriTrusted(requestedRedirectUri)) {
+          LOG.warn(
+              "SECURITY: Rejected OIDC login redirect_uri outside the server origin: {}",
+              requestedRedirectUri);
+          throw new TechnicalException("Invalid redirect URI");
+        }
         finalRedirectUri = requestedRedirectUri != null ? requestedRedirectUri : ssoCallbackUrl;
         LOG.debug("Web login flow detected - using configured callback URL");
       }
@@ -461,6 +467,39 @@ public class AuthenticationCodeFlowHandler implements AuthServeletHandler {
 
     session.setAttribute(SESSION_REDIRECT_URI, redirectUri);
     LOG.debug("Stored redirect URI in session {}: {}", session.getId(), redirectUri);
+  }
+
+  /**
+   * Guards against open-redirect / token exfiltration via an attacker-supplied {@code
+   * redirectUri} query parameter: only a relative reference (resolved by the browser against the
+   * current origin) or an absolute URI matching the configured server's origin is trusted.
+   */
+  private boolean isRedirectUriTrusted(String redirectUri) {
+    boolean trusted;
+    try {
+      URI target = new URI(redirectUri);
+      trusted = target.getAuthority() == null || isSameOrigin(new URI(serverUrl), target);
+    } catch (URISyntaxException e) {
+      trusted = false;
+    }
+    return trusted;
+  }
+
+  private static boolean isSameOrigin(URI server, URI target) {
+    boolean sameScheme =
+        target.getScheme() != null && target.getScheme().equalsIgnoreCase(server.getScheme());
+    boolean sameHost =
+        target.getHost() != null && target.getHost().equalsIgnoreCase(server.getHost());
+    boolean samePort = resolvePort(target) == resolvePort(server);
+    return sameScheme && sameHost && samePort;
+  }
+
+  private static int resolvePort(URI uri) {
+    int port = uri.getPort();
+    if (port == -1) {
+      port = "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    }
+    return port;
   }
 
   // Callback

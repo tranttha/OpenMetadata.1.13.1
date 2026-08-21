@@ -320,6 +320,59 @@ class AuthenticationCodeFlowHandlerTest {
   }
 
   @Test
+  void isRedirectUriTrustedAcceptsSameOriginAndRelativePaths() throws Exception {
+    AuthenticationCodeFlowHandler handler = newHandler();
+    setField(handler, "serverUrl", "https://openmetadata.example.com");
+
+    assertTrue(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "https://openmetadata.example.com/callback"));
+    assertTrue(
+        (Boolean)
+            invokePrivate(
+                handler, "isRedirectUriTrusted", new Class<?>[] {String.class}, "/callback"));
+  }
+
+  @Test
+  void isRedirectUriTrustedRejectsCrossOriginAndMalformedValues() throws Exception {
+    AuthenticationCodeFlowHandler handler = newHandler();
+    setField(handler, "serverUrl", "https://openmetadata.example.com");
+
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "https://attacker.example.com/steal"));
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "//attacker.example.com/steal"));
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "https://openmetadata.example.com:8443/callback"));
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "ht!tp://[invalid"));
+  }
+
+  @Test
   void validatePrincipalClaimsMappingRequiresUsernameAndEmail() {
     Map<String, String> mapping = Map.of("sub", "subject");
     assertThrows(
@@ -576,11 +629,12 @@ class AuthenticationCodeFlowHandlerTest {
     setField(handler, "client", client);
     setField(handler, "promptType", "login");
     setField(handler, "maxAge", "600");
+    setField(handler, "serverUrl", "https://openmetadata.example.com");
 
     when(request.getSession(false)).thenReturn(null);
     when(request.getSession(true)).thenReturn(session);
     when(request.getParameter(AuthenticationCodeFlowHandler.REDIRECT_URI_KEY))
-        .thenReturn("https://app.example.com/post-login");
+        .thenReturn("https://openmetadata.example.com/post-login");
     when(session.getAttribute(AuthenticationCodeFlowHandler.OIDC_CREDENTIAL_PROFILE))
         .thenReturn(null);
     when(session.getId()).thenReturn("session-id");
@@ -590,7 +644,7 @@ class AuthenticationCodeFlowHandlerTest {
     verify(session)
         .setAttribute(
             AuthenticationCodeFlowHandler.SESSION_REDIRECT_URI,
-            "https://app.example.com/post-login");
+            "https://openmetadata.example.com/post-login");
     ArgumentCaptor<String> redirectCaptor = ArgumentCaptor.forClass(String.class);
     verify(response).sendRedirect(redirectCaptor.capture());
     String location = redirectCaptor.getValue();
@@ -603,6 +657,55 @@ class AuthenticationCodeFlowHandlerTest {
     assertTrue(location.contains("state="));
     assertTrue(location.contains("nonce="));
     assertTrue(location.contains("code_challenge="));
+  }
+
+  @Test
+  void handleLoginRejectsCrossOriginRedirectUri() throws Exception {
+    AuthenticationCodeFlowHandler handler = newHandler();
+    OidcConfiguration configuration =
+        configuredOidcConfiguration(
+            "client-id", null, List.of(ClientAuthenticationMethod.CLIENT_SECRET_BASIC));
+    OidcClient client = oidcClient(configuration, "OpenRedirectClient");
+    setField(handler, "client", client);
+    setField(handler, "serverUrl", "https://openmetadata.example.com");
+
+    when(request.getSession(false)).thenReturn(null);
+    when(request.getSession(true)).thenReturn(session);
+    when(request.getParameter(AuthenticationCodeFlowHandler.REDIRECT_URI_KEY))
+        .thenReturn("https://attacker.example.com/steal");
+    when(response.getOutputStream()).thenReturn(outputStream);
+
+    handler.handleLogin(request, response);
+
+    verify(session, org.mockito.Mockito.never())
+        .setAttribute(eq(AuthenticationCodeFlowHandler.SESSION_REDIRECT_URI), any());
+    verify(response, org.mockito.Mockito.never()).sendRedirect(any());
+    verify(response).setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+  }
+
+  @Test
+  void handleLoginAllowsRelativeRedirectUri() throws Exception {
+    AuthenticationCodeFlowHandler handler = newHandler();
+    OidcConfiguration configuration =
+        configuredOidcConfiguration(
+            "client-id", null, List.of(ClientAuthenticationMethod.CLIENT_SECRET_BASIC));
+    OidcClient client = oidcClient(configuration, "RelativeRedirectClient");
+    setField(handler, "client", client);
+    setField(handler, "serverUrl", "https://openmetadata.example.com");
+
+    when(request.getSession(false)).thenReturn(null);
+    when(request.getSession(true)).thenReturn(session);
+    when(request.getParameter(AuthenticationCodeFlowHandler.REDIRECT_URI_KEY))
+        .thenReturn("/callback");
+    when(session.getAttribute(AuthenticationCodeFlowHandler.OIDC_CREDENTIAL_PROFILE))
+        .thenReturn(null);
+    when(session.getId()).thenReturn("session-id");
+
+    handler.handleLogin(request, response);
+
+    verify(session)
+        .setAttribute(AuthenticationCodeFlowHandler.SESSION_REDIRECT_URI, "/callback");
+    verify(response).sendRedirect(any());
   }
 
   @Test
