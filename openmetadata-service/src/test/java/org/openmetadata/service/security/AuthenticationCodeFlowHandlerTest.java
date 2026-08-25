@@ -373,6 +373,34 @@ class AuthenticationCodeFlowHandlerTest {
   }
 
   @Test
+  void isRedirectUriTrustedRejectsMissingSlashSchemeBypass() throws Exception {
+    AuthenticationCodeFlowHandler handler = newHandler();
+    setField(handler, "serverUrl", "https://openmetadata.example.com");
+
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "https:webhook.site/11e05cbc-19e2-491f-9291-c9c338ee3957"));
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "https:/webhook.site/steal"));
+    assertFalse(
+        (Boolean)
+            invokePrivate(
+                handler,
+                "isRedirectUriTrusted",
+                new Class<?>[] {String.class},
+                "/\\webhook.site/steal"));
+  }
+
+  @Test
   void validatePrincipalClaimsMappingRequiresUsernameAndEmail() {
     Map<String, String> mapping = Map.of("sub", "subject");
     assertThrows(

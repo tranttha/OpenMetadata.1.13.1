@@ -476,9 +476,37 @@ public class AuthenticationCodeFlowHandler implements AuthServeletHandler {
    */
   private boolean isRedirectUriTrusted(String redirectUri) {
     boolean trusted;
+    if (isSafeRelativeReference(redirectUri)) {
+      trusted = true;
+    } else {
+      trusted = isTrustedAbsoluteUri(redirectUri);
+    }
+    return trusted;
+  }
+
+  /**
+   * A bare path like "/callback" is safe: browsers resolve it against the current origin and
+   * cannot use it to navigate elsewhere. Deliberately checked on the raw string rather than via
+   * {@code URI.getAuthority()} - an opaque URI such as "https:evil.com" (a scheme but no "//")
+   * has a null authority in Java's parser yet real browsers still navigate it cross-origin, so
+   * relying on getAuthority() would misclassify it as a safe relative reference. "//host/path"
+   * and the backslash variant "/\host/path" are also rejected here since browsers normalize a
+   * leading backslash to a slash for special schemes, making both effectively protocol-relative.
+   */
+  private static boolean isSafeRelativeReference(String redirectUri) {
+    boolean safe = redirectUri.startsWith("/");
+    if (safe && redirectUri.length() > 1) {
+      char second = redirectUri.charAt(1);
+      safe = second != '/' && second != '\\';
+    }
+    return safe;
+  }
+
+  private boolean isTrustedAbsoluteUri(String redirectUri) {
+    boolean trusted;
     try {
       URI target = new URI(redirectUri);
-      trusted = target.getAuthority() == null || isSameOrigin(new URI(serverUrl), target);
+      trusted = target.isAbsolute() && isSameOrigin(new URI(serverUrl), target);
     } catch (URISyntaxException e) {
       trusted = false;
     }
