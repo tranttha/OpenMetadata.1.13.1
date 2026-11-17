@@ -21,7 +21,7 @@ from typing import Dict, Optional, Tuple  # noqa: UP035
 from packaging import version
 from sqlalchemy import sql, text, util
 from sqlalchemy.dialects.postgresql.base import ENUM
-from sqlalchemy.engine import reflection
+from sqlalchemy.engine import Engine, reflection
 from sqlalchemy.sql import sqltypes
 
 from metadata.ingestion.source.database.postgres.queries import (
@@ -516,6 +516,24 @@ def get_postgres_time_column_name(engine) -> str:
         if postgres_version and version.parse(postgres_version) < version.parse(OLD_POSTGRES_VERSION):
             time_column_name = "total_time"
         return time_column_name
+
+
+def get_safe_query_statement_source(engine: Engine, query_statement_source: str | None) -> str:
+    """
+    Safely quote the configured queryStatementSource identifier before it is
+    interpolated into a raw SQL FROM clause.
+
+    queryStatementSource is a free-form connector config field (optionally
+    schema-qualified, e.g. "my_schema.custom_pg_stat_statements") with no
+    schema-level allowlist or escaping upstream. Quoting each dot-separated
+    segment through the dialect's identifier preparer neutralizes injection:
+    a malicious value becomes an invalid (but harmless) identifier reference
+    - the query fails to find a matching relation - rather than executing
+    attacker-supplied SQL.
+    """
+    source = query_statement_source or "pg_stat_statements"
+    preparer = engine.dialect.identifier_preparer
+    return ".".join(preparer.quote(part) for part in source.split("."))
 
 
 @reflection.cache

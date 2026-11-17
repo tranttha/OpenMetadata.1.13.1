@@ -12,7 +12,9 @@
  */
 import { isEmpty } from 'lodash';
 import React from 'react';
+import TabsLabel from '../components/common/TabsLabel/TabsLabel.component';
 import { TabProps } from '../components/common/TabsLabel/TabsLabel.interface';
+import ReportTagPopover from '../components/Tag/RecognizerFeedback/ReportTagPopover';
 import { PAGE_SIZE } from '../constants/constants';
 import {
   DESCRIPTION_WIDGET,
@@ -27,6 +29,7 @@ import { Tag } from '../generated/entity/classification/tag';
 import { Tab } from '../generated/system/ui/uiCustomization';
 import { TagLabel } from '../generated/type/tagLabel';
 import { WidgetConfig } from '../pages/CustomizablePage/CustomizablePage.interface';
+import RecognizersTab from '../pages/TagPage/RecognizersTab/RecognizersTab.component';
 import { searchQuery } from '../rest/searchAPI';
 import { getTabLabelFromId } from './CustomizePage/CustomizePagePureUtils';
 import i18n from './i18next/LocalUtil';
@@ -262,11 +265,15 @@ class TagClassBase {
   };
 
   public getRecognizerFeedbackPopup(
-    _tagLabel: TagLabel,
-    _entityFqn: string,
-    _children: React.ReactElement
+    tagLabel: TagLabel,
+    entityFqn: string,
+    children: React.ReactElement
   ): React.ReactElement | null {
-    return null;
+    return React.createElement(ReportTagPopover, {
+      tagLabel,
+      entityFqn,
+      children,
+    });
   }
 
   public getClassificationReviewerWidget(): React.ReactElement | null {
@@ -283,10 +290,21 @@ class TagClassBase {
   }
 
   public getAdditionalTagDetailPageTabs(
-    _tag: Tag,
-    _activeTab: string
+    tag: Tag,
+    activeTab: string
   ): TabProps[] {
-    return [];
+    return [
+      {
+        label: React.createElement(TabsLabel, {
+          id: EntityTabs.RECOGNIZER,
+          isActive: activeTab === EntityTabs.RECOGNIZER,
+          name: i18n.t('label.recognizer-plural'),
+          count: tag.recognizers?.length,
+        }),
+        key: EntityTabs.RECOGNIZER,
+        children: React.createElement(RecognizersTab, { tag }),
+      },
+    ];
   }
 }
 

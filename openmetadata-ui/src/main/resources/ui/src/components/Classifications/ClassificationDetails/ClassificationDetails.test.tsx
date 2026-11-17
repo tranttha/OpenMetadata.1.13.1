@@ -78,6 +78,10 @@ jest.mock('@openmetadata/ui-core-components', () => ({
   ),
 }));
 
+jest.mock('./AutoClassificationConfigCard', () =>
+  jest.fn(() => <div data-testid="auto-classification-config-card-mock" />)
+);
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,

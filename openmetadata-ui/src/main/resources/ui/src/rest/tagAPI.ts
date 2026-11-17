@@ -22,6 +22,7 @@ import { CreateTag } from '../generated/api/classification/createTag';
 import { Classification } from '../generated/entity/classification/classification';
 import { EntityReference, Tag } from '../generated/entity/classification/tag';
 import { EntityHistory } from '../generated/type/entityHistory';
+import { RecognizerFeedback } from '../generated/type/recognizerFeedback';
 import { ListParams } from '../interface/API.interface';
 import { getEncodedFqn } from '../utils/StringUtils';
 import APIClient from './index';
@@ -160,6 +161,18 @@ export const patchTag = async (id: string, data: Operation[]) => {
     `/tags/${id}`,
     data
   );
+
+  return response.data;
+};
+
+export const postRecognizerFeedback = async (
+  fqn: string,
+  data: RecognizerFeedback
+) => {
+  const response = await APIClient.post<
+    RecognizerFeedback,
+    AxiosResponse<RecognizerFeedback>
+  >(`/tags/name/${getEncodedFqn(fqn)}/feedback`, data);
 
   return response.data;
 };

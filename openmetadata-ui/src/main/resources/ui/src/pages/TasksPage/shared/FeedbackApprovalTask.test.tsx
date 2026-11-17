@@ -13,8 +13,12 @@
 import { render, screen } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { FeedbackType } from '../../../generated/entity/feed/thread';
+import {
+  FeedbackType,
+  UserReason,
+} from '../../../generated/entity/feed/thread';
 import { MOCK_TASK_RECOGNIZER_FEEDBACK } from '../../../mocks/Task.mock';
+import { Task } from '../../../rest/tasksAPI';
 import FeedbackApprovalTask from './FeedbackApprovalTask';
 
 jest.mock('@openmetadata/ui-core-components', () => ({
@@ -100,7 +104,7 @@ const baseTask = {
     feedback: MOCK_TASK_RECOGNIZER_FEEDBACK.feedback,
     recognizer: MOCK_TASK_RECOGNIZER_FEEDBACK.recognizer,
   },
-} as any;
+} as unknown as Task;
 
 const mockProps = {
   task: baseTask,
@@ -163,6 +167,64 @@ describe('FeedbackApprovalTask', () => {
     expect(screen.getByText('label.entity-link')).toBeInTheDocument();
   });
 
+  it('should display user reason when available', () => {
+    const taskWithUserReason = {
+      ...mockProps.task,
+      payload: {
+        ...(mockProps.task.payload ?? {}),
+        feedback: {
+          ...(mockProps.task.payload?.feedback ?? {}),
+          userReason: UserReason.NotSensitiveData,
+        },
+      },
+    } as unknown as Task;
+
+    render(<FeedbackApprovalTask task={taskWithUserReason} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText('label.user-reason')).toBeInTheDocument();
+    expect(
+      screen.getByText('label.user-reason-not-sensitive-data')
+    ).toBeInTheDocument();
+  });
+
+  it('should not display user reason when not available', () => {
+    render(<FeedbackApprovalTask {...mockProps} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.queryByText('label.user-reason')).not.toBeInTheDocument();
+  });
+
+  it('should display suggested tag when available', () => {
+    const taskWithSuggestedTag = {
+      ...mockProps.task,
+      payload: {
+        ...(mockProps.task.payload ?? {}),
+        feedback: {
+          ...(mockProps.task.payload?.feedback ?? {}),
+          suggestedTag: 'PII.PhoneNumber',
+        },
+      },
+    } as unknown as Task;
+
+    render(<FeedbackApprovalTask task={taskWithSuggestedTag} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.getByText('label.suggested-tag')).toBeInTheDocument();
+    expect(screen.getByText('PhoneNumber')).toBeInTheDocument();
+  });
+
+  it('should not display suggested tag when not available', () => {
+    render(<FeedbackApprovalTask {...mockProps} />, {
+      wrapper: Wrapper,
+    });
+
+    expect(screen.queryByText('label.suggested-tag')).not.toBeInTheDocument();
+  });
+
   it('should not render when feedback is undefined', () => {
     const { container } = render(
       <FeedbackApprovalTask
@@ -192,7 +254,7 @@ describe('FeedbackApprovalTask', () => {
           feedbackType: FeedbackType.IncorrectClassification,
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithIncorrectClassification} />, {
       wrapper: Wrapper,
@@ -213,7 +275,7 @@ describe('FeedbackApprovalTask', () => {
           feedbackType: FeedbackType.OverlyBroad,
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithOverlyBroad} />, {
       wrapper: Wrapper,
@@ -234,7 +296,7 @@ describe('FeedbackApprovalTask', () => {
           feedbackType: FeedbackType.ContextSpecific,
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithContextSpecific} />, {
       wrapper: Wrapper,
@@ -255,7 +317,7 @@ describe('FeedbackApprovalTask', () => {
           userComments: undefined,
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithoutComments} />, {
       wrapper: Wrapper,
@@ -274,7 +336,7 @@ describe('FeedbackApprovalTask', () => {
           createdBy: undefined,
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithoutCreatedBy} />, {
       wrapper: Wrapper,
@@ -304,7 +366,7 @@ describe('FeedbackApprovalTask', () => {
           createdAt: undefined,
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithoutCreatedAt} />, {
       wrapper: Wrapper,
@@ -328,7 +390,7 @@ describe('FeedbackApprovalTask', () => {
           },
         },
       },
-    } as any;
+    } as unknown as Task;
 
     render(<FeedbackApprovalTask task={taskWithoutDisplayName} />, {
       wrapper: Wrapper,

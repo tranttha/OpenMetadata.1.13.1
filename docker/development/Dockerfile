@@ -75,7 +75,11 @@ RUN set -eu; \
     fi
 
 COPY --chown=openmetadata:openmetadata --from=build /opt/openmetadata /opt/openmetadata
-COPY --chmod=755 docker/openmetadata-start.sh /
+COPY docker/openmetadata-start.sh /openmetadata-start.sh
+# Normalize CRLF line endings (e.g. from a Windows checkout) so bash can run the script.
+RUN tr -d '\r' < /openmetadata-start.sh > /openmetadata-start.sh.tmp && \
+    mv /openmetadata-start.sh.tmp /openmetadata-start.sh && \
+    chmod 755 /openmetadata-start.sh
 
 USER openmetadata
 
